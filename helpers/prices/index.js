@@ -7,6 +7,12 @@ const COINGECKO_IDS = {
   SOL: "solana",
   TRON: "tron",
   APTOS: "aptos",
+  BASE: "ethereum",
+  POLYGON: "matic-network",
+  ARBITRUM: "ethereum",
+  USDT_TRC20: "tether",
+  USDT_BEP20: "tether",
+  USDT_ERC20: "tether",
 };
 
 export async function getPrices(chains = []) {

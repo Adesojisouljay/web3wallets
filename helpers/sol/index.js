@@ -52,5 +52,6 @@ export async function estimateSolFee() {
     chain: "SOL",
     feeSol: feeLamports / 1e9,
     feeLamports,
+    fee: feeLamports / 1e9,
   };
 }

@@ -18,6 +18,12 @@ export async function estimateFee(chain, payload) {
     case "APTOS":
       return estimateAptosFee(payload);
 
+    case "BTC":
+      return {
+        chain: "BTC",
+        fee: (250 * 2) / 100000000
+      };
+
     default:
       throw new Error(`Unsupported chain: ${chain}`);
   }

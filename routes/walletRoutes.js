@@ -3,7 +3,10 @@ import {
   generateMnemonic,
   deriveAddress,
   getWalletInfo,
-  sendWalletTransaction
+  sendWalletTransaction,
+  estimateTransactionFee,
+  getTransactionParams,
+  broadcastWalletTransaction
 } from "../controllers/wallet.js";
 
 const router = express.Router();
@@ -20,6 +23,15 @@ router.post("/info", getWalletInfo);
 
 ///sendcoin
 router.post("/send", sendWalletTransaction);
+
+// Estimate fee
+router.post("/fee", estimateTransactionFee);
+
+// Get TX Params (nonce, gas, blockhash)
+router.post("/params", getTransactionParams);
+
+// Broadcast signed TX
+router.post("/broadcast", broadcastWalletTransaction);
 
 
 
