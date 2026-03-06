@@ -112,20 +112,24 @@ export const getWalletInfo = async (req, res) => {
 
     let prices = {};
     try {
-      // Race price fetch with a 5s timeout
-      prices = await Promise.race([getPrices(chains), timeout(5000)]);
+      // Race price fetch with a 15s timeout
+      prices = await Promise.race([getPrices(chains), timeout(30000)]);
     } catch (err) {
       console.warn("Price fetch failed or timed out:", err.message);
     }
 
-    const walletInfo = await Promise.all(
-      Object.entries(wallets).map(async ([chain, data]) => {
-        if (chain === "mnemonic") return null;
+    const chainsToFetch = Object.entries(wallets).filter(([c, _]) => c !== "mnemonic");
+    const walletInfo = [];
+    const chunkSize = 3; // Number of chains to fetch concurrently
+    const delayBetweenChunks = 500; // ms
 
-        let balance = 0;
+    for (let i = 0; i < chainsToFetch.length; i += chunkSize) {
+      const chunk = chainsToFetch.slice(i, i + chunkSize);
+
+      const chunkPromises = chunk.map(async ([chain, data]) => {
+        let balance = null; // Use null to indicate failure
         try {
-          // Race each balance fetch with a 5s timeout
-          balance = await Promise.race([getWalletBalance(chain, data.address), timeout(5000)]);
+          balance = await Promise.race([getWalletBalance(chain, data.address), timeout(30000)]);
         } catch (err) {
           console.warn(`Balance fetch failed or timed out for ${chain}:`, err.message);
         }
@@ -141,10 +145,17 @@ export const getWalletInfo = async (req, res) => {
           balance,
           price: priceData.usd,
           change24h: priceData.change24h,
-          usdValue: balance * priceData.usd,
+          usdValue: balance !== null ? balance * priceData.usd : null,
         };
-      })
-    );
+      });
+
+      const chunkResults = await Promise.all(chunkPromises);
+      walletInfo.push(...chunkResults);
+
+      if (i + chunkSize < chainsToFetch.length) {
+        await new Promise(resolve => setTimeout(resolve, delayBetweenChunks)); // Delay before next chunk
+      }
+    }
 
     return res.json({
       success: true,
@@ -294,7 +305,7 @@ export const getTransactionParams = async (req, res) => {
       params = { utxos, feeRate: 2 };
     } else if (chain === "TRON") {
       const { TronWeb } = await import("tronweb");
-      const tronWeb = new TronWeb({ fullHost: "https://api.trongrid.io" });
+      const tronWeb = new TronWeb({ fullHost: process.env.TRON_RPC_URL || "https://api.trongrid.io" });
       const amountInSun = tronWeb.toSun(parseFloat(amount.toString()) || 0);
       const transaction = await tronWeb.transactionBuilder.sendTrx(to, amountInSun, address);
       params = { transaction };
@@ -345,10 +356,23 @@ export const broadcastWalletTransaction = async (req, res) => {
       hash = res.data;
     } else if (chain === "TRON") {
       const { TronWeb } = await import("tronweb");
-      const tronWeb = new TronWeb({ fullHost: "https://api.trongrid.io" });
+      const tronWeb = new TronWeb({ fullHost: process.env.TRON_RPC_URL || "https://api.trongrid.io" });
       const tx = JSON.parse(signedTx);
       const result = await tronWeb.trx.sendRawTransaction(tx);
-      hash = result.txid;
+
+
+      // Tron sometimes omits `result: false` and instead just returns `{ code: "...", message: "..." }`
+      if (!result || result.result === false || result.code) {
+        let errMsg = result?.message || result?.code || "Tron broadcast failed";
+
+        // Tron error messages are often hex-encoded
+        if (typeof errMsg === 'string' && /^[0-9a-fA-F]+$/.test(errMsg)) {
+          try { errMsg = Buffer.from(errMsg, 'hex').toString(); } catch (e) { }
+        }
+        throw new Error(errMsg);
+      }
+
+      hash = result.txid || tx.txID;
     } else if (chain === "APTOS") {
       const { AptosClient } = await import("aptos");
       const client = new AptosClient("https://fullnode.mainnet.aptoslabs.com/v1");

@@ -12,7 +12,6 @@ import { Keypair } from "@solana/web3.js";
 
 export const getMnemonic = async () => {
   const mnemonic = cryptoLib.bip39.generateMnemonic(128);
-  console.log("🔑 Test Mnemonic........:", mnemonic);
   return mnemonic;
 }
 
@@ -59,20 +58,25 @@ export async function getWalletForChain(chain, mnemonic) {
       };
     }
 
+    // ---------------- TRON ----------------
     case "TRON": {
       const seed = await bip39.mnemonicToSeed(mnemonic);
-      const derived = derivePath("m/44'/195'/0'/0'", seed.toString("hex"));
-      const privateKeyHex = derived.key.toString("hex");
+      const root = cryptoLib.bip32.fromSeed(seed);
+      const child = root.derivePath("m/44'/195'/0'/0/0");
+      const privateKeyHex = child.privateKey.toString("hex");
 
       const address = tronLib.addressFromPrivate(privateKeyHex);
       const publicKeyBuffer = tronLib.getPubKeyFromPriKey(privateKeyHex);
+      const publicKeyRaw = publicKeyBuffer?.toString("hex") || "";
 
       return {
         address,
-        publicKey: Buffer.from(publicKeyBuffer).toString("hex"),
+        privateKey: privateKeyHex,
+        publicKey: publicKeyRaw,
       };
     }
 
+    // ---------------- BNB ----------------
     case "BNB": {
       // use the same derivation as ETH
       const seed = await cryptoLib.bip39.mnemonicToSeed(mnemonic);
@@ -92,10 +96,9 @@ export async function getWalletForChain(chain, mnemonic) {
 
     // ---------------- BTC ----------------
     case "BTC": {
-      const seed = await bip39.mnemonicToSeed(mnemonic);
       const root = cryptoLib.bip32.fromSeed(seed);
-      // Standard BTC path for first account, first address
-      const child = root.derivePath("m/44'/0'/0'/0/0");
+      // Modern BTC default (Native SegWit)
+      const child = root.derivePath("m/84'/0'/0'/0/0");
 
       const privateKey = child.toWIF(); // WIF format private key
       const wallet = new btcLib.BtcWallet();
@@ -162,7 +165,7 @@ export async function getWalletForChainAtIndex(chain, mnemonic, index = 0) {
 
     case "BTC": {
       const root = cryptoLib.bip32.fromSeed(seedBuffer);
-      const path = `m/44'/0'/0'/0/${index}`;
+      const path = `m/84'/0'/0'/0/${index}`;
       const child = root.derivePath(path);
 
       const privateKey = child.toWIF();
@@ -191,9 +194,10 @@ export async function getWalletForChainAtIndex(chain, mnemonic, index = 0) {
     }
 
     case "TRON": {
+      const root = cryptoLib.bip32.fromSeed(seedBuffer);
       const path = `m/44'/195'/0'/0/${index}`;
-      const derived = derivePath(path, seedBuffer.toString("hex"));
-      const privateKeyHex = derived.key.toString("hex");
+      const child = root.derivePath(path);
+      const privateKeyHex = child.privateKey.toString("hex");
       const address = tronLib.addressFromPrivate(privateKeyHex);
       const publicKey = Buffer.from(tronLib.getPubKeyFromPriKey(privateKeyHex)).toString("hex");
 

@@ -32,10 +32,12 @@ app.get("/ping", (req, res) => res.json({
 }));
 
 // Simple request logger
-app.use((req, res, next) => {
-  console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
-  next();
-});
+// Basic request logging removed for VPS performance
+// app.use((req, res, next) => {
+//   console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
+//   next();
+// });
+
 
 app.use("/api", routes);
 
@@ -46,9 +48,19 @@ app.use("/api", (req, res) => {
 });
 // console.log("process.env.ETH_RPC_URLuuu;...",process.env.ETH_RPC_URL)
 
+console.log("Starting server setup...");
 app.listen(4001, () => {
+  console.log("Server listening event fired!");
   console.log("Server running on port 4001");
   console.log("Working directory:", process.cwd());
+}).on('error', (err) => {
+  console.error("SERVER ERROR:", err);
+});
 
-  console.log("Working directory:", process.cwd());
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('UNHANDLED REJECTION:', reason);
 });

@@ -12,7 +12,7 @@ const client = new AptosClient(
 export async function getAptosBalance(address) {
   const url = `https://fullnode.mainnet.aptoslabs.com/v1/accounts/${address}/resources`;
 
-  const { data } = await axios.get(url);
+  const { data } = await axios.get(url, { timeout: 25000 });
 
   const coin = data.find(
     (r) => r.type === "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>"

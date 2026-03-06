@@ -10,12 +10,39 @@ import {
 } from "@solana/web3.js";
 import bs58 from "bs58";
 
-const connection = new Connection(clusterApiUrl("mainnet-beta"));
+const SOLANA_RPCS = [
+  process.env.SOL_RPC_URL,
+  "https://api.mainnet-beta.solana.com",
+  "https://solana-mainnet.rpc.extrnode.com",
+  "https://rpc.ankr.com/solana",
+  "https://solana.publicnode.com"
+].filter(Boolean);
 
 export async function getSolBalance(address) {
   const pubKey = new PublicKey(address);
-  const lamports = await connection.getBalance(pubKey);
-  return lamports / 1e9;
+
+  for (const rpc of SOLANA_RPCS) {
+    try {
+      const conn = new Connection(rpc, {
+        commitment: "confirmed",
+        confirmTransactionInitialTimeout: 15000
+      });
+
+      const lamports = await Promise.race([
+        conn.getBalance(pubKey),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
+      ]);
+
+      const solBalance = lamports / 1e9;
+      return solBalance;
+    } catch (err) {
+      console.warn(`[SOL Balance Fallback] ${rpc} failed:`, err.message);
+      continue;
+    }
+  }
+
+  console.error(`[SOL All RPCs Failed] ${address}`);
+  throw new Error("All RPCs failed");
 }
 
 export async function sendSol({ privateKey, to, amount }) {

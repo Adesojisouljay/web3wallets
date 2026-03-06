@@ -6,18 +6,144 @@ import { ethers } from "ethers";
 console.log("process.env.ETH_RPC_URL;...", process.env.ETH_RPC_URL)
 
 if (!process.env.ETH_RPC_URL) {
-  throw new Error("ETH_RPC_URL missing in environment variables");
+  console.warn("ETH_RPC_URL missing in environment variables, using fallback.");
 }
 
-export async function getEthBalance(address, rpcUrl = process.env.ETH_RPC_URL) {
+import axios from "axios";
+
+const RPC_LISTS = {
+  ETH: [
+    process.env.ETH_RPC_URL,
+    "https://eth.drpc.org",
+    "https://eth.llamarpc.com",
+    "https://rpc.ankr.com/eth",
+    "https://ethereum.publicnode.com"
+  ].filter(Boolean),
+  BASE: [
+    process.env.BASE_RPC_URL,
+    "https://base.drpc.org",
+    "https://base.llamarpc.com",
+    "https://mainnet.base.org"
+  ].filter(Boolean),
+  BNB: [
+    process.env.BNB_RPC_URL,
+    "https://bsc.drpc.org",
+    "https://binance.llamarpc.com",
+    "https://bsc-dataseed.binance.org",
+    "https://rpc.ankr.com/bsc"
+  ].filter(Boolean),
+  POLYGON: [
+    process.env.POLYGON_RPC_URL,
+    "https://polygon.drpc.org",
+    "https://polygon.llamarpc.com",
+    "https://polygon-rpc.com"
+  ].filter(Boolean),
+  ARBITRUM: [
+    process.env.ARBITRUM_RPC_URL,
+    "https://arbitrum.drpc.org",
+    "https://arbitrum.llamarpc.com",
+    "https://arb1.arbitrum.io/rpc"
+  ].filter(Boolean)
+};
+
+async function tryRpc(rpcUrl, payload, timeout = 15000) {
+  try {
+    const { data } = await axios.post(rpcUrl, payload, { timeout });
+    if (data && data.result !== undefined) return data.result;
+    if (data && data.error) throw new Error(data.error.message);
+    throw new Error("Invalid RPC response");
+  } catch (err) {
+    throw new Error(`RPC ${rpcUrl} failed: ${err.message}`);
+  }
+}
+
+export async function getEthBalance(address, chain = "ETH") {
   if (!ethers.isAddress(address)) {
     throw new Error("Invalid Ethereum address");
   }
 
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const balanceWei = await provider.getBalance(address);
-  console.log(ethers.formatEther(balanceWei))
-  return Number(ethers.formatEther(balanceWei));
+  const rpcs = RPC_LISTS[chain] || RPC_LISTS.ETH;
+  const payload = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "eth_getBalance",
+    params: [address, "latest"]
+  };
+
+  for (const rpc of rpcs) {
+    try {
+      const result = await tryRpc(rpc, payload);
+      const balanceEth = ethers.formatEther(BigInt(result));
+      return Number(balanceEth);
+    } catch (err) {
+      console.warn(`[${chain} Balance Fallback] ${rpc} failed:`, err.message);
+      continue;
+    }
+  }
+
+  console.error(`[${chain} All RPCs Failed] ${address}`);
+  throw new Error("All RPCs failed");
+}
+
+export async function getErc20Balance(address, contractAddress, chain = "ETH") {
+  const rpcs = RPC_LISTS[chain] || RPC_LISTS.ETH;
+  const abi = new ethers.Interface([
+    "function balanceOf(address owner) view returns (uint256)",
+    "function decimals() view returns (uint8)"
+  ]);
+
+  const balanceData = abi.encodeFunctionData("balanceOf", [address]);
+  const decimalsData = abi.encodeFunctionData("decimals");
+
+  const knownDecimals = {
+    "0x55d398326f99059ff775485246999027b3197955": 18, // USDT BNB
+    "0xdac17f958d2ee523a2206206994597c13d831ec7": 6  // USDT ETH
+  };
+  const cachedDecimals = knownDecimals[contractAddress.toLowerCase()];
+
+  for (const rpc of rpcs) {
+    try {
+      let balanceRes, decimalsRes;
+
+      // Optimization: Prevent making simultaneous 2x RPC calls for known stablecoins. 
+      // Simultaneous calls frequently trigger rate limits on public RPCs like Ankr and LlamaRPC.
+      if (cachedDecimals !== undefined) {
+        balanceRes = await tryRpc(rpc, {
+          jsonrpc: "2.0",
+          id: 2,
+          method: "eth_call",
+          params: [{ to: contractAddress, data: balanceData }, "latest"]
+        });
+      } else {
+        [balanceRes, decimalsRes] = await Promise.all([
+          tryRpc(rpc, {
+            jsonrpc: "2.0",
+            id: 2,
+            method: "eth_call",
+            params: [{ to: contractAddress, data: balanceData }, "latest"]
+          }),
+          tryRpc(rpc, {
+            jsonrpc: "2.0",
+            id: 3,
+            method: "eth_call",
+            params: [{ to: contractAddress, data: decimalsData }, "latest"]
+          })
+        ]);
+      }
+
+      const balance = abi.decodeFunctionResult("balanceOf", balanceRes)[0];
+      const decimals = cachedDecimals !== undefined ? cachedDecimals : abi.decodeFunctionResult("decimals", decimalsRes)[0];
+      const formatted = Number(ethers.formatUnits(balance, decimals));
+
+      return formatted;
+    } catch (err) {
+      console.warn(`[ERC20 ${chain} Fallback] ${contractAddress} on ${rpc} failed:`, err.message);
+      continue;
+    }
+  }
+
+  console.error(`[ERC20 ${chain} All RPCs Failed] ${contractAddress} for ${address}`);
+  throw new Error("All RPCs failed");
 }
 
 export async function sendEth({ rpcUrl, privateKey, to, amount }) {
@@ -97,22 +223,4 @@ export async function estimateEthFee({ rpcUrl, from, to, amount }) {
     feeEth: ethers.formatEther(gasCostWei),
     feeWei: gasCostWei.toString(),
   };
-}
-
-export async function getErc20Balance(address, contractAddress, rpcUrl = process.env.ETH_RPC_URL) {
-  try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const abi = ["function balanceOf(address owner) view returns (uint256)", "function decimals() view returns (uint8)"];
-    const contract = new ethers.Contract(contractAddress, abi, provider);
-
-    const [balance, decimals] = await Promise.all([
-      contract.balanceOf(address),
-      contract.decimals()
-    ]);
-
-    return Number(ethers.formatUnits(balance, decimals));
-  } catch (err) {
-    console.error(`ERC20 balance error for ${contractAddress} on ${rpcUrl}:`, err.message);
-    return 0;
-  }
 }
