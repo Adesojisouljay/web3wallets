@@ -1,8 +1,10 @@
 import { getEthBalance } from "./eth/index.js";
 import { getBtcBalance } from "./btc/index.js";
-import { getSolBalance } from "./sol/index.js";
+import { getSolBalance, getSolTokenBalance } from "./sol/index.js";
 import { getTronBalance, getTrc20Balance } from "./tron/index.js";
 import { getAptosBalance } from "./aptos/index.js";
+import { getDogeBalance } from "./doge/index.js";
+import { getLtcBalance } from "./ltc/index.js";
 import { getErc20Balance } from "./eth/index.js";
 import NodeCache from "node-cache";
 
@@ -36,6 +38,9 @@ export async function getWalletBalance(chain, address) {
     case "SOL":
       balance = await getSolBalance(address);
       break;
+    case "SOL_USDT":
+      balance = await getSolTokenBalance(address, "Es9vMFrzaCERmJfrF4H2FYD4KCoNkYvvbBWuCHGWG8t");
+      break;
     case "TRON":
       balance = await getTronBalance(address);
       break;
@@ -50,6 +55,12 @@ export async function getWalletBalance(chain, address) {
       break;
     case "APTOS":
       balance = await getAptosBalance(address);
+      break;
+    case "DOGE":
+      balance = await getDogeBalance(address);
+      break;
+    case "LTC":
+      balance = await getLtcBalance(address);
       break;
     default:
       throw new Error(`Unsupported chain: ${chain}`);

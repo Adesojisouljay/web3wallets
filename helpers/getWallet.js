@@ -94,8 +94,41 @@ export async function getWalletForChain(chain, mnemonic) {
       };
     }
 
+    // ---------------- DOGE ----------------
+    case "DOGE": {
+      const wallet = new btcLib.DogeWallet();
+      const privateKey = await wallet.getDerivedPrivateKey({
+        mnemonic,
+        hdPath: "m/44'/3'/0'/0/0"
+      });
+      const addressData = await wallet.getNewAddress({ privateKey });
+
+      return {
+        address: addressData.address,
+        publicKey: addressData.publicKey,
+        privateKey
+      };
+    }
+
+    // ---------------- LTC ----------------
+    case "LTC": {
+      const wallet = new btcLib.LtcWallet();
+      const privateKey = await wallet.getDerivedPrivateKey({
+        mnemonic,
+        hdPath: "m/84'/2'/0'/0/0"
+      });
+      const addressData = await wallet.getNewAddress({ privateKey });
+
+      return {
+        address: addressData.address,
+        publicKey: addressData.publicKey,
+        privateKey
+      };
+    }
+
     // ---------------- BTC ----------------
     case "BTC": {
+      const seed = await cryptoLib.bip39.mnemonicToSeed(mnemonic);
       const root = cryptoLib.bip32.fromSeed(seed);
       // Modern BTC default (Native SegWit)
       const child = root.derivePath("m/84'/0'/0'/0/0");
@@ -163,13 +196,24 @@ export async function getWalletForChainAtIndex(chain, mnemonic, index = 0) {
       };
     }
 
-    case "BTC": {
-      const root = cryptoLib.bip32.fromSeed(seedBuffer);
-      const path = `m/84'/0'/0'/0/${index}`;
-      const child = root.derivePath(path);
+    case "BTC":
+    case "DOGE":
+    case "LTC": {
+      let wallet;
+      let hdPath;
 
-      const privateKey = child.toWIF();
-      const wallet = new btcLib.BtcWallet();
+      if (chain === "BTC") {
+        wallet = new btcLib.BtcWallet();
+        hdPath = `m/84'/0'/0'/0/${index}`;
+      } else if (chain === "DOGE") {
+        wallet = new btcLib.DogeWallet();
+        hdPath = `m/44'/3'/0'/0/${index}`;
+      } else {
+        wallet = new btcLib.LtcWallet();
+        hdPath = `m/84'/2'/0'/0/${index}`;
+      }
+
+      const privateKey = await wallet.getDerivedPrivateKey({ mnemonic, hdPath });
       const addressData = await wallet.getNewAddress({ privateKey });
 
       return {

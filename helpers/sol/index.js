@@ -18,6 +18,40 @@ const SOLANA_RPCS = [
   "https://solana.publicnode.com"
 ].filter(Boolean);
 
+export async function getSolTokenBalance(address, mintAddress) {
+  const pubKey = new PublicKey(address);
+  const mintPubKey = new PublicKey(mintAddress);
+
+  for (const rpc of SOLANA_RPCS) {
+    try {
+      const conn = new Connection(rpc, {
+        commitment: "confirmed",
+      });
+
+      const response = await conn.getParsedTokenAccountsByOwner(pubKey, {
+        mint: mintPubKey,
+      });
+
+      const accounts = response.value;
+      if (accounts.length === 0) return 0;
+
+      // Sum up balances if multiple accounts exist (rare for standard users)
+      let totalBalance = 0;
+      for (const acc of accounts) {
+        totalBalance += acc.account.data.parsed.info.tokenAmount.uiAmount || 0;
+      }
+
+      return totalBalance;
+    } catch (err) {
+      console.warn(`[SOL Token Balance Fallback] ${rpc} failed:`, err.message);
+      continue;
+    }
+  }
+
+  console.error(`[SOL Token All RPCs Failed] ${address} for mint ${mintAddress}`);
+  return 0; // Return 0 instead of throwing for better UX
+}
+
 export async function getSolBalance(address) {
   const pubKey = new PublicKey(address);
 
