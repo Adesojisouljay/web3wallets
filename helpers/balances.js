@@ -39,7 +39,7 @@ export async function getWalletBalance(chain, address) {
       balance = await getSolBalance(address);
       break;
     case "SOL_USDT":
-      balance = await getSolTokenBalance(address, "Es9vMFrzaCERmJfrF4H2FYD4KCoNkYvvbBWuCHGWG8t");
+      balance = await getSolTokenBalance(address, "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB");
       break;
     case "TRON":
       balance = await getTronBalance(address);

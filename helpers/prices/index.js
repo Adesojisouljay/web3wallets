@@ -17,6 +17,7 @@ const COINGECKO_IDS = {
   USDT_TRC20: "tether",
   USDT_BEP20: "tether",
   USDT_ERC20: "tether",
+  SOL_USDT: "tether",
 };
 
 export async function getPrices(chains = []) {
