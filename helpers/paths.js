@@ -7,5 +7,10 @@ export const HD_PATHS = {
     "m/44'/0'/0'/0/0",  // Legacy (fallback)
   ],
   APTOS: ["m/44'/637'/0'/0'/0'"],
-  SOL: ["m/44'/501'/0'/0'"] // but BaseWallet cannot use it
+  SOL: ["m/44'/501'/0'/0'"], // but BaseWallet cannot use it
+  DOGE: ["m/44'/3'/0'/0/0"],
+  LTC: [
+    "m/84'/2'/0'/0/0", // Native SegWit
+    "m/44'/2'/0'/0/0", // Legacy
+  ]
 };
