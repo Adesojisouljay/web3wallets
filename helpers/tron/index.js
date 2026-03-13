@@ -8,6 +8,27 @@ const TRON_RPCS = [
   "https://api.tronstack.io"
 ].filter(Boolean);
 
+/**
+ * Helper to get a TronWeb instance with fallback support
+ */
+async function getTronWebInstance() {
+  for (const rpc of TRON_RPCS) {
+    try {
+      const tw = new TronWeb({ fullHost: rpc });
+      // Quick check if RPC is responsive
+      await Promise.race([
+        tw.trx.getCurrentBlock(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("RPC Timeout")), 3000))
+      ]);
+      return tw;
+    } catch (err) {
+      console.warn(`[TRON RPC Fallback] ${rpc} failed:`, err.message);
+      continue;
+    }
+  }
+  throw new Error("All TRON RPCs failed");
+}
+
 export async function getTronBalance(address) {
   for (const rpc of TRON_RPCS) {
     try {
@@ -28,12 +49,19 @@ export async function getTronBalance(address) {
 }
 
 export async function sendTron({ privateKey, to, amount }) {
-  tronWeb.setPrivateKey(privateKey);
+  const tw = new TronWeb({
+    fullHost: TRON_RPCS[0] || "https://api.trongrid.io",
+    privateKey: privateKey
+  });
 
-  const tx = await tronWeb.trx.sendTransaction(
+  const tx = await tw.trx.sendTransaction(
     to,
     amount * 1e6
   );
+
+  if (!tx || tx.result === false) {
+    throw new Error(tx?.message || "TRON transaction failed");
+  }
 
   return {
     hash: tx.txid,
@@ -41,9 +69,23 @@ export async function sendTron({ privateKey, to, amount }) {
   };
 }
 
-export async function estimateTronFee({ from }) {
+export async function estimateTronFee({ from, to }) {
   try {
-    const tw = new TronWeb({ fullHost: process.env.TRON_RPC_URL || "https://api.trongrid.io" });
+    const tw = await getTronWebInstance();
+
+    // 1. Check if recipient account exists/is activated
+    // If account doesn't exist, it costs ~1.1 TRX to activate
+    let activationFee = 0;
+    try {
+      const account = await tw.trx.getAccount(to);
+      if (!account || !account.address) {
+        activationFee = 1.1; // Standard activation fee in TRX
+      }
+    } catch (e) {
+      // If error or not found, assume needs activation
+      activationFee = 1.1;
+    }
+
     const accountResources = await tw.trx.getAccountResources(from);
 
     // Total free bandwidth
@@ -52,21 +94,27 @@ export async function estimateTronFee({ from }) {
     const availableBandwidth = freeBandwidth - usedBandwidth;
 
     // A standard Tron transfer takes roughly 300 bandwidth.
-    // If not enough bandwidth, Tron burns ~0.001 TRX per bandwidth. (So ~0.3 TRX).
-    // Using 1.1 TRX is a standard conservative estimate for Tron networks to be safe.
-    let feeTrx = 1.1;
+    // If not enough bandwidth, Tron burns ~0.002 TRX per bandwidth (approx 0.3 TRX total).
+    // However, if it's a new account, the cost is much higher (1.1 TRX total burn).
 
-    if (availableBandwidth > 300) {
+    let feeTrx = activationFee > 0 ? activationFee : 0.3; // Default estimated burn if no bandwidth
+
+    if (availableBandwidth > 350) {
       feeTrx = 0;
     }
+
+    // Safety buffer
+    if (feeTrx > 0 && feeTrx < 1.1) feeTrx = 1.1;
 
     return {
       chain: "TRON",
       model: "bandwidth",
       freeBandwidth: availableBandwidth,
+      requiresActivation: activationFee > 0,
       fee: feeTrx,
     };
   } catch (err) {
+    console.error("[estimateTronFee] Error:", err);
     return {
       chain: "TRON",
       fee: 1.1, // Safe fallback
@@ -136,3 +184,4 @@ export async function getTrc20Balance(address, contractAddress = "TR7NHqjeKQxGTC
   console.error(`[TRC20 All RPCs Failed] ${contractAddress} for ${address}`);
   throw new Error("All RPCs failed");
 }
+
