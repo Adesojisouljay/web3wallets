@@ -135,22 +135,16 @@ export async function sendSolToken({ privateKey, to, amount, mintAddress }) {
   try {
     const accInfo = await connection.getAccountInfo(toTokenAccount);
     if (!accInfo) {
-      // Manual instruction for creating ATA if not using @solana/spl-token
-      // This is a common pattern for wallets
-      const { TransactionInstruction } = await import("@solana/web3.js");
+      // Use official spl-token helper to avoid layout issues
+      const { createAssociatedTokenAccountInstruction } = await import("@solana/spl-token");
+
       tx.add(
-        new TransactionInstruction({
-          keys: [
-            { pubkey: sender.publicKey, isSigner: true, isWritable: true },
-            { pubkey: toTokenAccount, isSigner: false, isWritable: true },
-            { pubkey: destPubKey, isSigner: false, isWritable: false },
-            { pubkey: mintPubKey, isSigner: false, isWritable: false },
-            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-            { pubkey: tokenProgramId, isSigner: false, isWritable: false },
-          ],
-          programId: ataProgramId,
-          data: Buffer.alloc(0),
-        })
+        createAssociatedTokenAccountInstruction(
+          sender.publicKey, // payer
+          toTokenAccount,   // ata
+          destPubKey,       // owner
+          mintPubKey        // mint
+        )
       );
     }
   } catch (e) {
