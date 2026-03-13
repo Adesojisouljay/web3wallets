@@ -281,10 +281,25 @@ export const getTransactionParams = async (req, res) => {
         chainId: Number(network.chainId)
       };
     } else if (chain === "SOL" || chain === "SOL_USDT") {
-      const { Connection, clusterApiUrl } = await import("@solana/web3.js");
+      const { Connection, clusterApiUrl, PublicKey } = await import("@solana/web3.js");
       const connection = new Connection(clusterApiUrl("mainnet-beta"));
       const { blockhash } = await connection.getLatestBlockhash();
       params = { recentBlockhash: blockhash };
+
+      if (chain === "SOL_USDT") {
+        const mintPubKey = new PublicKey("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB");
+        const destPubKey = new PublicKey(to);
+        const tokenProgramId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+        const ataProgramId = new PublicKey("ATokenGPvbdQxrXJvGfsCSGDbqzJuLS6mYGGZAKiT16");
+
+        const [toTokenAccount] = PublicKey.findProgramAddressSync(
+          [destPubKey.toBuffer(), tokenProgramId.toBuffer(), mintPubKey.toBuffer()],
+          ataProgramId
+        );
+
+        const accInfo = await connection.getAccountInfo(toTokenAccount);
+        params.ataExists = !!accInfo;
+      }
     } else if (chain === "BTC") {
       const { default: axios } = await import("axios");
       // Fetch UTXOs from Blockstream API (mainnet)
