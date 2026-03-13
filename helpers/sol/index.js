@@ -106,6 +106,93 @@ export async function sendSol({ privateKey, to, amount }) {
   };
 }
 
+export async function sendSolToken({ privateKey, to, amount, mintAddress }) {
+  // Use a reliable RPC for sending
+  const connection = new Connection(
+    SOLANA_RPCS[0] || "https://api.mainnet-beta.solana.com"
+  );
+
+  const sender = Keypair.fromSecretKey(bs58.decode(privateKey));
+  const mintPubKey = new PublicKey(mintAddress);
+  const destPubKey = new PublicKey(to);
+  const tokenProgramId = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+  const ataProgramId = new PublicKey("ATokenGPvbdQxrXJvGfsCSGDbqzJuLS6mYGGZAKiT16");
+
+  // Helper to find Associated Token Account
+  const findAta = (owner, mint) => {
+    return PublicKey.findProgramAddressSync(
+      [owner.toBuffer(), tokenProgramId.toBuffer(), mint.toBuffer()],
+      ataProgramId
+    )[0];
+  };
+
+  const fromTokenAccount = findAta(sender.publicKey, mintPubKey);
+  const toTokenAccount = findAta(destPubKey, mintPubKey);
+
+  const tx = new Transaction();
+
+  // Check if destination ATA exists, if not, create it
+  try {
+    const accInfo = await connection.getAccountInfo(toTokenAccount);
+    if (!accInfo) {
+      // Manual instruction for creating ATA if not using @solana/spl-token
+      // This is a common pattern for wallets
+      const { TransactionInstruction } = await import("@solana/web3.js");
+      tx.add(
+        new TransactionInstruction({
+          keys: [
+            { pubkey: sender.publicKey, isSigner: true, isWritable: true },
+            { pubkey: toTokenAccount, isSigner: false, isWritable: true },
+            { pubkey: destPubKey, isSigner: false, isWritable: false },
+            { pubkey: mintPubKey, isSigner: false, isWritable: false },
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+            { pubkey: tokenProgramId, isSigner: false, isWritable: false },
+          ],
+          programId: ataProgramId,
+          data: Buffer.alloc(0),
+        })
+      );
+    }
+  } catch (e) {
+    console.warn("Could not check/create destination ATA:", e.message);
+  }
+
+  // Token transfer instruction
+  // Data layout: [instruction_index, amount_u64]
+  // instruction_index 3 = Transfer (not TransferChecked)
+  // For Transfer, we need 3 keys: source, destination, owner
+  const instructionData = Buffer.alloc(9);
+  instructionData.writeUInt8(3, 0);
+  // USDT on SOL has 6 decimals, so amount * 1e6
+  const decimals = mintAddress === "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" ? 6 : 9;
+  const sunAmount = Math.floor(amount * Math.pow(10, decimals));
+  instructionData.writeBigUInt64LE(BigInt(sunAmount), 1);
+
+  const { TransactionInstruction } = await import("@solana/web3.js");
+  tx.add(
+    new TransactionInstruction({
+      keys: [
+        { pubkey: fromTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: toTokenAccount, isSigner: false, isWritable: true },
+        { pubkey: sender.publicKey, isSigner: true, isWritable: false },
+      ],
+      programId: tokenProgramId,
+      data: instructionData,
+    })
+  );
+
+  const signature = await sendAndConfirmTransaction(
+    connection,
+    tx,
+    [sender]
+  );
+
+  return {
+    hash: signature,
+    chain: "SOL",
+  };
+}
+
 export async function estimateSolFee() {
   // Solana fees are mostly flat
   const feeLamports = 5000; // typical transfer fee

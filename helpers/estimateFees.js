@@ -10,6 +10,7 @@ export async function estimateFee(chain, payload) {
       return estimateEthFee(payload);
 
     case "SOL":
+    case "SOL_USDT":
       return estimateSolFee(payload);
 
     case "TRON":

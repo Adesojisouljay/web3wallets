@@ -1,5 +1,5 @@
 import { sendEth } from "./eth/index.js";
-import { sendSol } from "./sol/index.js";
+import { sendSol, sendSolToken } from "./sol/index.js";
 import { sendTron } from "./tron/index.js";
 import { sendAptos } from "./aptos/index.js";
 
@@ -11,6 +11,12 @@ export async function sendCoin(chain, payload) {
 
     case "SOL":
       return sendSol(payload);
+
+    case "SOL_USDT":
+      return sendSolToken({
+        ...payload,
+        mintAddress: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+      });
 
     case "TRON":
       return sendTron(payload);

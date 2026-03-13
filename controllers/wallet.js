@@ -76,6 +76,7 @@ export const deriveAddress = async (req, res) => {
       ARBITRUM: { ...arbitrum, imageUrl: TOKEN_ICONS.ARBITRUM },
       USDT_TRC20: { ...usdt_trc20, imageUrl: TOKEN_ICONS.USDT },
       USDT_BEP20: { ...usdt_bep20, imageUrl: TOKEN_ICONS.USDT },
+      SOL_USDT: { ...sol, imageUrl: TOKEN_ICONS.USDT },
     };
 
     return res.status(200).json({
@@ -279,7 +280,7 @@ export const getTransactionParams = async (req, res) => {
         gasLimit: "21000", // Standard transfer
         chainId: Number(network.chainId)
       };
-    } else if (chain === "SOL") {
+    } else if (chain === "SOL" || chain === "SOL_USDT") {
       const { Connection, clusterApiUrl } = await import("@solana/web3.js");
       const connection = new Connection(clusterApiUrl("mainnet-beta"));
       const { blockhash } = await connection.getLatestBlockhash();
@@ -345,7 +346,7 @@ export const broadcastWalletTransaction = async (req, res) => {
       const provider = new ethers.JsonRpcProvider(rpcUrl);
       const tx = await provider.broadcastTransaction(signedTx);
       hash = tx.hash;
-    } else if (chain === "SOL") {
+    } else if (chain === "SOL" || chain === "SOL_USDT") {
       const { Connection, clusterApiUrl } = await import("@solana/web3.js");
       const connection = new Connection("https://api.mainnet-beta.solana.com");
       const rawTransaction = Buffer.from(signedTx, "base64");
