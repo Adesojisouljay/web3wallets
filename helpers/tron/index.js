@@ -122,6 +122,67 @@ export async function estimateTronFee({ from, to }) {
   }
 }
 
+export async function estimateTrc20Fee({ from, to, amount, contractAddress = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" }) {
+  try {
+    const tw = await getTronWebInstance();
+    const ownerHex = tw.address.toHex(from);
+    const contractHex = tw.address.toHex(contractAddress);
+    const toHex = tw.address.toHex(to);
+    const amountInt = Math.floor(Number(amount || 0) * 1e6); // 6 decimals
+    
+    // Simulate the smart contract execution
+    const tx = await tw.transactionBuilder.triggerConstantContract(
+      contractHex,
+      "transfer(address,uint256)",
+      {},
+      [
+        { type: "address", value: toHex },
+        { type: "uint256", value: amountInt }
+      ],
+      ownerHex
+    );
+    
+    // energy_used represents the energy consumed (often ~31895 or ~64895)
+    let energyUsed = tx.energy_used || 65000;
+    
+    // Fallback if TronGrid suppresses energy_used on failure
+    if (energyUsed === 0) energyUsed = 65000;
+    
+    // Fetch user's staked/rented Energy and Bandwidth
+    const accountResources = await tw.trx.getAccountResources(ownerHex);
+    const availableEnergy = (accountResources.EnergyLimit || 0) - (accountResources.EnergyUsed || 0);
+    const availableBandwidth = ((accountResources.freeNetLimit || 0) + (accountResources.NetLimit || 0)) - ((accountResources.freeNetUsed || 0) + (accountResources.NetUsed || 0));
+    
+    // Subtract completely free energy from the consumed amount
+    const billableEnergy = Math.max(0, energyUsed - availableEnergy);
+    
+    // TRON network currently charges ~420 sun per 1 energy
+    const energyFeeInSun = billableEnergy * 420;
+    let feeTrx = energyFeeInSun / 1e6;
+    
+    // Account for bandwidth (approx 345 bandwidth per TRC20 transfer)
+    // If not enough bandwidth, it burns ~0.35 TRX. Safe to add 1 TRX buffer.
+    if (availableBandwidth < 350) {
+      feeTrx += 1.0;
+    }
+    
+    // Cap at a reasonable max to avoid scary UI bugs
+    if (feeTrx > 50) feeTrx = 50;
+    
+    return {
+      chain: "USDT_TRC20",
+      fee: feeTrx,
+      energyUsed,
+    };
+  } catch (err) {
+    console.error("[estimateTrc20Fee] Error:", err.message);
+    return {
+      chain: "USDT_TRC20",
+      fee: 28.5, // Realistic fallback if simulation fails
+    };
+  }
+}
+
 const TRC20_ABI = [
   {
     constant: true,

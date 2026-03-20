@@ -97,7 +97,8 @@ export async function getErc20Balance(address, contractAddress, chain = "ETH") {
 
   const knownDecimals = {
     "0x55d398326f99059ff775485246999027b3197955": 18, // USDT BNB
-    "0xdac17f958d2ee523a2206206994597c13d831ec7": 6  // USDT ETH
+    "0xdac17f958d2ee523a2206206994597c13d831ec7": 6,  // USDT ETH
+    "0x912ce59144191c1204e64559fe8253a0e49e6548": 18 // ARB
   };
   const cachedDecimals = knownDecimals[contractAddress.toLowerCase()];
 
@@ -224,3 +225,92 @@ export async function estimateEthFee({ rpcUrl, from, to, amount }) {
     feeWei: gasCostWei.toString(),
   };
 }
+
+export async function estimateErc20Fee({ rpcUrl, from, to, amount, contractAddress }) {
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+  const abi = ["function transfer(address to, uint256 amount) returns (bool)"];
+  const iface = new ethers.Interface(abi);
+
+  // We need decimals to properly parse amount. Default to 6 for USDT on ETH.
+  const knownDecimals = {
+    "0x55d398326f99059ff775485246999027b3197955": 18, // USDT BNB
+    "0xdac17f958d2ee523a2206206994597c13d831ec7": 6,  // USDT ETH
+    "0x912ce59144191c1204e64559fe8253a0e49e6548": 18 // ARB
+  };
+  const decimals = knownDecimals[contractAddress.toLowerCase()] || 6;
+  const value = ethers.parseUnits(amount.toString(), decimals);
+
+  const data = iface.encodeFunctionData("transfer", [to, value]);
+
+  let gasEstimate;
+  try {
+    gasEstimate = await provider.estimateGas({
+      from,
+      to: contractAddress,
+      data,
+      value: 0n,
+    });
+  } catch (err) {
+    console.warn("ERC20 Gas estimation failed, using fallback:", err.message);
+    gasEstimate = 65000n; // Standard ERC20 transfer fallback
+  }
+
+  const feeData = await provider.getFeeData();
+  const gasPrice = feeData.gasPrice || 2000000000n;
+  const gasCostWei = gasEstimate * gasPrice;
+
+  return {
+    chain: rpcUrl.includes("bsc") || rpcUrl.includes("binance") ? "BNB" : "ETH",
+    gasLimit: gasEstimate.toString(),
+    gasPrice: ethers.formatUnits(gasPrice, "gwei"),
+    fee: Number(ethers.formatEther(gasCostWei)), // Fee always paid in native token (ETH/BNB)
+    feeEth: ethers.formatEther(gasCostWei),
+    feeWei: gasCostWei.toString(),
+  };
+}
+
+export async function buildErc20TransactionParams({ rpcUrl, address, to, amount, contractAddress }) {
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+
+  const abi = ["function transfer(address to, uint256 amount) returns (bool)"];
+  const iface = new ethers.Interface(abi);
+
+  const knownDecimals = {
+    "0x55d398326f99059ff775485246999027b3197955": 18, // USDT BNB
+    "0xdac17f958d2ee523a2206206994597c13d831ec7": 6,  // USDT ETH
+    "0x912ce59144191c1204e64559fe8253a0e49e6548": 18 // ARB
+  };
+  const decimals = knownDecimals[contractAddress.toLowerCase()] || 6;
+  const value = ethers.parseUnits(amount.toString(), decimals);
+
+  const data = iface.encodeFunctionData("transfer", [to, value]);
+
+  const [nonce, feeData, network] = await Promise.all([
+    provider.getTransactionCount(address),
+    provider.getFeeData(),
+    provider.getNetwork()
+  ]);
+
+  let gasLimit = 65000n;
+  try {
+    gasLimit = await provider.estimateGas({
+      from: address,
+      to: contractAddress,
+      data,
+      value: 0n,
+    });
+  } catch (err) {
+    console.warn("ERC20 build tx gas estimation failed, using fallback:", err.message);
+  }
+
+  return {
+    to: contractAddress, // For ERC20, the transaction 'to' is the contract address
+    data,
+    nonce,
+    gasPrice: feeData.gasPrice.toString(),
+    gasLimit: gasLimit.toString(),
+    chainId: Number(network.chainId)
+  };
+}
+

@@ -53,6 +53,9 @@ export async function getWalletBalance(chain, address) {
     case "USDT_ERC20":
       balance = await getErc20Balance(address, "0xdAC17F958D2ee523a2206206994597C13D831ec7", "ETH");
       break;
+    case "ARB":
+      balance = await getErc20Balance(address, "0x912CE59144191C1204E64559FE8253a0e49E6548", "ARBITRUM");
+      break;
     case "APTOS":
       balance = await getAptosBalance(address);
       break;

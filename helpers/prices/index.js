@@ -17,7 +17,10 @@ const COINGECKO_IDS = {
   USDT_TRC20: "tether",
   USDT_BEP20: "tether",
   USDT_ERC20: "tether",
+  ARB: "arbitrum",
   SOL_USDT: "tether",
+  DOGE: "dogecoin",
+  LTC: "litecoin",
 };
 
 export async function getPrices(chains = []) {
