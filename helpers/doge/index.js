@@ -2,25 +2,36 @@ import axios from "axios";
 
 export async function getDogeBalance(address) {
     try {
-        // Dogechain API
-        const url = `https://dogechain.info/api/v1/address/balance/${address}`;
-        const { data } = await axios.get(url, { timeout: 15000 });
-
-        // Dogechain returns { balance: "...", success: 1 }
-        if (data && data.success === 1) {
-            return parseFloat(data.balance);
+        const apiKey = process.env.TATUM_API_KEY;
+        const url = `https://api.tatum.io/v3/dogecoin/address/balance/${address}`;
+        const headers = apiKey ? { 'x-api-key': apiKey } : {};
+        
+        const { data } = await axios.get(url, { 
+            timeout: 15000,
+            headers
+        });
+        
+        if (data && data.incoming !== undefined && data.outgoing !== undefined) {
+            // Tatum returns balance in Doge directly, but usually it's incoming - outgoing
+            // Actually Tatum balance endpoint returns incoming and outgoing in DOGE string.
+            const balance = parseFloat(data.incoming) - parseFloat(data.outgoing);
+            return balance;
         }
-        return 0;
     } catch (err) {
-        console.warn(`Dogechain fetch failed for ${address}, trying Blockcypher:`, err.message);
-        try {
-            // Blockcypher Fallback
-            const url = `https://api.blockcypher.com/v1/doge/main/addrs/${address}/balance`;
-            const { data } = await axios.get(url, { timeout: 15000 });
-            return data.balance / 1e8;
-        } catch (fallbackErr) {
-            console.error(`DOGE all fallbacks failed:`, fallbackErr.message);
-            return 0;
-        }
+        console.warn(`Tatum DOGE fetch failed for ${address}:`, err?.response?.data || err.message);
     }
+
+    try {
+        const url = `https://api.blockchair.com/dogecoin/dashboards/address/${address}`;
+        const { data } = await axios.get(url, { 
+            timeout: 15000,
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        if (data && data.data && data.data[address]) {
+            return data.data[address].address.balance / 1e8;
+        }
+    } catch (fallbackErr) {
+        console.error(`DOGE fallback failed:`, fallbackErr.message);
+    }
+    return 0;
 }

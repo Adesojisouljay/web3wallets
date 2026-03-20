@@ -15,7 +15,10 @@ export const TOKEN_ICONS = {
   BASE: "https://assets.coingecko.com/coins/images/279/large/ethereum.png", // Base uses ETH token icon usually
   POLYGON: "https://assets.coingecko.com/coins/images/4713/large/matic-token-icon.png",
   ARBITRUM: "https://assets.coingecko.com/coins/images/16547/large/arbitrum-shield.png",
-  USDT: "https://assets.coingecko.com/coins/images/325/large/tether.png",
+  USDT: "https://cryptologos.cc/logos/tether-usdt-logo.png",
+  DOGE: "https://cryptologos.cc/logos/dogecoin-doge-logo.png",
+  LTC: "https://cryptologos.cc/logos/litecoin-ltc-logo.png",
+  ARB: "https://cryptologos.cc/logos/arbitrum-arb-logo.png",
 };
 
 
@@ -53,6 +56,8 @@ export const deriveAddress = async (req, res) => {
     const tron = await getWalletForChain("TRON", mnemonic);
     const bnb = await getWalletForChain("BNB", mnemonic);
     const aptos = await getWalletForChain("APTOS", mnemonic);
+    const doge = await getWalletForChain("DOGE", mnemonic);
+    const ltc = await getWalletForChain("LTC", mnemonic);
     const base = await getWalletForChain("ETH", mnemonic); // Same as ETH
     const polygon = await getWalletForChain("ETH", mnemonic); // Same as ETH
     const arbitrum = await getWalletForChain("ETH", mnemonic); // Same as ETH
@@ -60,6 +65,7 @@ export const deriveAddress = async (req, res) => {
     // USDT Tokens (Inherit addresses from parent chains)
     const usdt_trc20 = tron;
     const usdt_bep20 = bnb;
+    const usdt_erc20 = eth;
 
     // Build response object with icons added
     const wallets = {
@@ -71,12 +77,16 @@ export const deriveAddress = async (req, res) => {
       TRON: { ...tron, imageUrl: TOKEN_ICONS.TRON },
       BNB: { ...bnb, imageUrl: TOKEN_ICONS.BNB },
       APTOS: { ...aptos, imageUrl: TOKEN_ICONS.APTOS },
+      DOGE: { ...doge, imageUrl: TOKEN_ICONS.DOGE },
+      LTC: { ...ltc, imageUrl: TOKEN_ICONS.LTC },
       BASE: { ...base, imageUrl: TOKEN_ICONS.BASE },
       POLYGON: { ...polygon, imageUrl: TOKEN_ICONS.POLYGON },
       ARBITRUM: { ...arbitrum, imageUrl: TOKEN_ICONS.ARBITRUM },
       USDT_TRC20: { ...usdt_trc20, imageUrl: TOKEN_ICONS.USDT },
       USDT_BEP20: { ...usdt_bep20, imageUrl: TOKEN_ICONS.USDT },
+      USDT_ERC20: { ...usdt_erc20, imageUrl: TOKEN_ICONS.USDT },
       SOL_USDT: { ...sol, imageUrl: TOKEN_ICONS.USDT },
+      ARB: { ...arbitrum, imageUrl: TOKEN_ICONS.ARB },
     };
 
     return res.status(200).json({
@@ -187,7 +197,7 @@ export const sendWalletTransaction = async (req, res) => {
     if (chain === "BNB") rpcUrl = process.env.BNB_RPC_URL || "https://bsc-dataseed.binance.org/";
     else if (chain === "BASE") rpcUrl = process.env.BASE_RPC_URL || "https://mainnet.base.org";
     else if (chain === "POLYGON") rpcUrl = process.env.POLYGON_RPC_URL || "https://polygon-rpc.com";
-    else if (chain === "ARBITRUM") rpcUrl = process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc";
+    else if (chain === "ARBITRUM" || chain === "ARB") rpcUrl = process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc";
 
     const result = await sendCoin(chain, {
       rpcUrl: rpcUrl,
@@ -227,16 +237,32 @@ export const estimateTransactionFee = async (req, res) => {
       rpcUrl = process.env.BASE_RPC_URL || "https://mainnet.base.org";
     } else if (chain === "POLYGON") {
       rpcUrl = process.env.POLYGON_RPC_URL || "https://polygon-rpc.com";
-    } else if (chain === "ARBITRUM") {
+    } else if (chain === "ARBITRUM" || chain === "ARB") {
       rpcUrl = process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc";
     }
 
-    const feeObj = await estimateFee(chain, {
-      rpcUrl,
-      from,
-      to,
-      amount,
-    });
+    let feeObj;
+    if (chain === "USDT_ERC20" || chain === "USDT_BEP20" || chain === "ARB") {
+       const { estimateErc20Fee } = await import("../helpers/eth/index.js");
+       let contractAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7"; // ETH USDT
+       if (chain === "USDT_BEP20") contractAddress = "0x55d398326f99059fF775485246999027B3197955";
+       else if (chain === "ARB") contractAddress = "0x912ce59144191c1204e64559fe8253a0e49e6548";
+       
+       feeObj = await estimateErc20Fee({
+         rpcUrl,
+         from,
+         to,
+         amount,
+         contractAddress
+       });
+    } else {
+      feeObj = await estimateFee(chain, {
+        rpcUrl,
+        from,
+        to,
+        amount,
+      });
+    }
 
     return res.json({
       success: true,
@@ -258,7 +284,25 @@ export const getTransactionParams = async (req, res) => {
     }
 
     let params = {};
-    if (["ETH", "BNB", "BASE", "POLYGON", "ARBITRUM"].includes(chain)) {
+
+    if (chain === "USDT_ERC20" || chain === "USDT_BEP20" || chain === "ARB") {
+      const { buildErc20TransactionParams } = await import("../helpers/eth/index.js");
+      let rpcUrl = process.env.ETH_RPC_URL;
+      if (chain === "USDT_BEP20") rpcUrl = process.env.BNB_RPC_URL || "https://bsc-dataseed.binance.org/";
+      else if (chain === "ARB") rpcUrl = process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc";
+
+      let contractAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7"; // ETH USDT
+      if (chain === "USDT_BEP20") contractAddress = "0x55d398326f99059fF775485246999027B3197955";
+      else if (chain === "ARB") contractAddress = "0x912ce59144191c1204e64559fe8253a0e49e6548";
+
+      params = await buildErc20TransactionParams({
+        rpcUrl,
+        address,
+        to,
+        amount,
+        contractAddress
+      });
+    } else if (["ETH", "BNB", "BASE", "POLYGON", "ARBITRUM"].includes(chain)) {
       const { ethers } = await import("ethers");
       let rpcUrl = process.env.ETH_RPC_URL;
       if (chain === "BNB") rpcUrl = process.env.BNB_RPC_URL || "https://bsc-dataseed.binance.org/";
@@ -321,6 +365,23 @@ export const getTransactionParams = async (req, res) => {
       const amountInSun = tronWeb.toSun(parseFloat(amount.toString()) || 0);
       const transaction = await tronWeb.transactionBuilder.sendTrx(to, amountInSun, address);
       params = { transaction };
+    } else if (chain === "USDT_TRC20") {
+      const { TronWeb } = await import("tronweb");
+      const tronWeb = new TronWeb({ fullHost: process.env.TRON_RPC_URL || "https://api.trongrid.io" });
+      const contractAddress = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20 Contract
+      const amountInt = Math.floor(Number(amount) * 1e6); // 6 decimals
+
+      const tx = await tronWeb.transactionBuilder.triggerSmartContract(
+        contractAddress,
+        "transfer(address,uint256)",
+        { feeLimit: 150000000, callValue: 0 },
+        [
+          { type: "address", value: to },
+          { type: "uint256", value: amountInt }
+        ],
+        address
+      );
+      params = { transaction: tx.transaction };
     } else if (chain === "APTOS") {
       const { AptosClient } = await import("aptos");
       const client = new AptosClient("https://fullnode.mainnet.aptoslabs.com/v1");
@@ -329,6 +390,40 @@ export const getTransactionParams = async (req, res) => {
         sequenceNumber: accountData.sequence_number,
         chainId: 1 // Mainnet
       };
+    } else if (chain === "DOGE") {
+      const { default: axios } = await import("axios");
+      const token = process.env.BLOCKCYPHER_API_TOKEN || "";
+      const tokenParam = token ? `&token=${token}` : "";
+      
+      const utxoRes = await axios.get(`https://api.blockcypher.com/v1/doge/main/addrs/${address}?unspentOnly=true${tokenParam}`);
+      const refs = utxoRes.data.txrefs || utxoRes.data.unconfirmed_txrefs || [];
+      const utxos = await Promise.all(refs.map(async (u) => {
+        const txRes = await axios.get(`https://api.blockcypher.com/v1/doge/main/txs/${u.tx_hash}?includeHex=true${tokenParam}`);
+        return {
+          txid: u.tx_hash,
+          vout: u.tx_output_n,
+          value: u.value,
+          nonWitnessUtxo: txRes.data.hex,
+        };
+      }));
+      params = { utxos, feeRate: 1 };
+    } else if (chain === "LTC") {
+      const { default: axios } = await import("axios");
+      const token = process.env.BLOCKCYPHER_API_TOKEN || "";
+      const tokenParam = token ? `&token=${token}` : "";
+      
+      const utxoRes = await axios.get(`https://api.blockcypher.com/v1/ltc/main/addrs/${address}?unspentOnly=true${tokenParam}`);
+      const refs = utxoRes.data.txrefs || utxoRes.data.unconfirmed_txrefs || [];
+      const utxos = await Promise.all(refs.map(async (u) => {
+        const txRes = await axios.get(`https://api.blockcypher.com/v1/ltc/main/txs/${u.tx_hash}?includeHex=true${tokenParam}`);
+        return {
+          txid: u.tx_hash,
+          vout: u.tx_output_n,
+          value: u.value,
+          nonWitnessUtxo: txRes.data.hex,
+        };
+      }));
+      params = { utxos, feeRate: 2 }; // LTC typically uses a slightly higher fee rate structurally or explicitly
     }
 
     return res.json({ success: true, params });
@@ -346,13 +441,13 @@ export const broadcastWalletTransaction = async (req, res) => {
     }
 
     let hash = "";
-    if (["ETH", "BNB", "BASE", "POLYGON", "ARBITRUM"].includes(chain)) {
+    if (["ETH", "BNB", "BASE", "POLYGON", "ARBITRUM", "USDT_ERC20", "USDT_BEP20", "ARB"].includes(chain)) {
       const { ethers } = await import("ethers");
       let rpcUrl = process.env.ETH_RPC_URL;
-      if (chain === "BNB") rpcUrl = process.env.BNB_RPC_URL || "https://bsc-dataseed.binance.org/";
+      if (chain === "BNB" || chain === "USDT_BEP20") rpcUrl = process.env.BNB_RPC_URL || "https://bsc-dataseed.binance.org/";
       else if (chain === "BASE") rpcUrl = process.env.BASE_RPC_URL || "https://mainnet.base.org";
       else if (chain === "POLYGON") rpcUrl = process.env.POLYGON_RPC_URL || "https://polygon-rpc.com";
-      else if (chain === "ARBITRUM") rpcUrl = process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc";
+      else if (chain === "ARBITRUM" || chain === "ARB") rpcUrl = process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc";
 
       const provider = new ethers.JsonRpcProvider(rpcUrl);
       const tx = await provider.broadcastTransaction(signedTx);
@@ -366,7 +461,7 @@ export const broadcastWalletTransaction = async (req, res) => {
       const { default: axios } = await import("axios");
       const res = await axios.post("https://blockstream.info/api/tx", signedTx);
       hash = res.data;
-    } else if (chain === "TRON") {
+    } else if (chain === "TRON" || chain === "USDT_TRC20") {
       const { TronWeb } = await import("tronweb");
       const tronWeb = new TronWeb({ fullHost: process.env.TRON_RPC_URL || "https://api.trongrid.io" });
       const tx = JSON.parse(signedTx);
@@ -388,14 +483,33 @@ export const broadcastWalletTransaction = async (req, res) => {
     } else if (chain === "APTOS") {
       const { AptosClient } = await import("aptos");
       const client = new AptosClient("https://fullnode.mainnet.aptoslabs.com/v1");
-      const result = await client.submitTransaction(Buffer.from(signedTx, "hex"));
+      
+      // Ensure hex string has an even length
+      let payloadHex = signedTx.startsWith('0x') ? signedTx.slice(2) : signedTx;
+      if (payloadHex.length % 2 !== 0) {
+        payloadHex = '0' + payloadHex;
+      }
+      
+      const result = await client.submitTransaction(Buffer.from(payloadHex, "hex"));
       hash = result.hash;
+    } else if (chain === "DOGE") {
+      const { default: axios } = await import("axios");
+      const token = process.env.BLOCKCYPHER_API_TOKEN || "";
+      const tokenParam = token ? `?token=${token}` : "";
+      const res = await axios.post(`https://api.blockcypher.com/v1/doge/main/txs/push${tokenParam}`, { tx: signedTx });
+      hash = res.data.tx.hash;
+    } else if (chain === "LTC") {
+      const { default: axios } = await import("axios");
+      const token = process.env.BLOCKCYPHER_API_TOKEN || "";
+      const tokenParam = token ? `?token=${token}` : "";
+      const res = await axios.post(`https://api.blockcypher.com/v1/ltc/main/txs/push${tokenParam}`, { tx: signedTx });
+      hash = res.data.tx.hash;
     }
 
     return res.json({ success: true, hash });
   } catch (err) {
     console.error("Broadcast Error:", err);
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: err?.response?.data?.message || err.message });
   }
 };
 
