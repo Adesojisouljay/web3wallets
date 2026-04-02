@@ -21,6 +21,8 @@ const COINGECKO_IDS = {
   SOL_USDT: "tether",
   DOGE: "dogecoin",
   LTC: "litecoin",
+  HIVE: "hive",
+  HBD: "hive_dollar",
 };
 
 export async function getPrices(chains = []) {

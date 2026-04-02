@@ -18,7 +18,10 @@ export const getMnemonic = async () => {
 export async function getWalletForChain(chain, mnemonic) {
   switch (chain) {
     // ---------------- ETH ----------------
-    case "ETH": {
+    case "ETH":
+    case "BNB":
+    case "USDT_ERC20":
+    case "USDT_BEP20": {
       const seed = await cryptoLib.bip39.mnemonicToSeed(mnemonic);
       const root = cryptoLib.bip32.fromSeed(seed);
       const child = root.derivePath("m/44'/60'/0'/0/0");
@@ -35,7 +38,8 @@ export async function getWalletForChain(chain, mnemonic) {
     }
 
     // ---------------- SOL ----------------
-    case "SOL": {
+    case "SOL":
+    case "SOL_USDT": {
       // 1. mnemonic -> seed
       const seed = await bip39.mnemonicToSeed(mnemonic);
 
@@ -59,7 +63,8 @@ export async function getWalletForChain(chain, mnemonic) {
     }
 
     // ---------------- TRON ----------------
-    case "TRON": {
+    case "TRON":
+    case "USDT_TRC20": {
       const seed = await bip39.mnemonicToSeed(mnemonic);
       const root = cryptoLib.bip32.fromSeed(seed);
       const child = root.derivePath("m/44'/195'/0'/0/0");
@@ -77,7 +82,8 @@ export async function getWalletForChain(chain, mnemonic) {
     }
 
     // ---------------- BNB ----------------
-    case "BNB": {
+    case "BNB": 
+    case "USDT_BEP20": {
       // use the same derivation as ETH
       const seed = await cryptoLib.bip39.mnemonicToSeed(mnemonic);
       const root = cryptoLib.bip32.fromSeed(seed);
@@ -180,7 +186,9 @@ export async function getWalletForChainAtIndex(chain, mnemonic, index = 0) {
 
   switch (chain) {
     case "ETH":
-    case "BNB": {
+    case "BNB":
+    case "USDT_ERC20":
+    case "USDT_BEP20": {
       const root = cryptoLib.bip32.fromSeed(seedBuffer);
       const path = `m/44'/60'/0'/0/${index}`;
       const child = root.derivePath(path);
@@ -223,7 +231,8 @@ export async function getWalletForChainAtIndex(chain, mnemonic, index = 0) {
       };
     }
 
-    case "SOL": {
+    case "SOL":
+    case "SOL_USDT": {
       const path = `m/44'/501'/${index}'/0'`;
       const derived = derivePath(path, seedBuffer.toString("hex"));
       const keypair = Keypair.fromSeed(derived.key);
@@ -237,7 +246,8 @@ export async function getWalletForChainAtIndex(chain, mnemonic, index = 0) {
       };
     }
 
-    case "TRON": {
+    case "TRON":
+    case "USDT_TRC20": {
       const root = cryptoLib.bip32.fromSeed(seedBuffer);
       const path = `m/44'/195'/0'/0/${index}`;
       const child = root.derivePath(path);

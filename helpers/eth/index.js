@@ -314,3 +314,32 @@ export async function buildErc20TransactionParams({ rpcUrl, address, to, amount,
   };
 }
 
+export async function sendErc20({ rpcUrl, privateKey, to, amount, contractAddress }) {
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const wallet = new ethers.Wallet(privateKey, provider);
+
+    const abi = ["function transfer(address to, uint256 amount) returns (bool)", "function decimals() view returns (uint8)"];
+    const contract = new ethers.Contract(contractAddress, abi, wallet);
+
+    const decimals = await contract.decimals();
+    const value = ethers.parseUnits(amount.toString(), decimals);
+
+    // Estimate gas for the token transfer
+    const gasLimit = await contract.transfer.estimateGas(to, value);
+    const feeData = await provider.getFeeData();
+
+    const tx = await contract.transfer(to, value, {
+        gasLimit,
+        gasPrice: feeData.gasPrice
+    });
+
+    return {
+        hash: tx.hash,
+        from: wallet.address,
+        to,
+        amount,
+        contractAddress,
+        chain: rpcUrl.includes("bsc") ? "BNB" : "ETH"
+    };
+}
+

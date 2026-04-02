@@ -53,6 +53,7 @@ app.listen(4001, () => {
   console.log("Server listening event fired!");
   console.log("Server running on port 4001");
   console.log("Working directory:", process.cwd());
+  console.log("FEEE_API_KEY present:", !!process.env.FEEE_API_KEY);
 }).on('error', (err) => {
   console.error("SERVER ERROR:", err);
 });

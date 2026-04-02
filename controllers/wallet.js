@@ -104,6 +104,30 @@ export const deriveAddress = async (req, res) => {
   }
 };
 
+export const deriveAddressAtIndex = async (req, res) => {
+  try {
+    const { mnemonic, chain, index } = req.body;
+    if (!mnemonic || !chain || index === undefined) {
+      return res.status(400).json({ success: false, message: "mnemonic, chain, and index are required" });
+    }
+
+    const { getWalletForChainAtIndex } = await import("../helpers/getWallet.js");
+    const wallet = await getWalletForChainAtIndex(chain, mnemonic, Number(index));
+
+    return res.status(200).json({
+      success: true,
+      wallet
+    });
+  } catch (error) {
+    console.error("Wallet Index Derivation Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to derive indexed wallet",
+      error: error.message,
+    });
+  }
+};
+
 export const getWalletInfo = async (req, res) => {
   try {
     const { wallets } = req.body;
@@ -173,11 +197,12 @@ export const getWalletInfo = async (req, res) => {
       walletInfo: walletInfo.filter(Boolean),
     });
   } catch (err) {
-    console.error("Wallet Info Error:", err);
+    console.error("CRITICAL Wallet Info error:", err);
     return res.status(500).json({
       success: false,
-      message: "An internal error occurred while fetching wallet info",
+      message: "Internal server error fetching wallet info",
       error: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
   }
 };
@@ -465,6 +490,20 @@ export const broadcastWalletTransaction = async (req, res) => {
       const { TronWeb } = await import("tronweb");
       const tronWeb = new TronWeb({ fullHost: process.env.TRON_RPC_URL || "https://api.trongrid.io" });
       const tx = JSON.parse(signedTx);
+      
+      if (chain === "USDT_TRC20") {
+        try {
+          const ownerHex = tx.raw_data.contract[0].parameter.value.owner_address;
+          if (ownerHex) {
+            const address = tronWeb.address.fromHex(ownerHex);
+            const { ensureTronEnergy } = await import("../helpers/tron/index.js");
+            await ensureTronEnergy(address);
+          }
+        } catch (e) {
+          console.error("Failed to extract owner address for energy check:", e.message);
+        }
+      }
+
       const result = await tronWeb.trx.sendRawTransaction(tx);
 
 
@@ -513,12 +552,27 @@ export const broadcastWalletTransaction = async (req, res) => {
   }
 };
 
-async function getScriptPubKey(address) {
-  // Simple helper to get scriptPubKey for Bech32 (SegWit)
-  // In a real app, use bitcoinjs-lib or similar
-  if (address.startsWith('bc1')) {
-    // This is a placeholder, usually we'd use a lib
-    return "0014" + address; // Not quite right but works for demo
-  }
-  return "0014";
-}
+export const sweepAssets = async (req, res) => {
+    try {
+        const { chain, amount, toAddress, mnemonic } = req.body;
+        const finalMnemonic = mnemonic || process.env.HD_MASTER_MNEMONIC;
+        
+        if (!chain || !amount || !toAddress || !finalMnemonic) {
+            return res.status(400).json({ success: false, message: "Missing sweep parameters (chain, amount, toAddress, or mnemonic/HD_MASTER_MNEMONIC)" });
+        }
+
+        const { getWalletForChainAtIndex } = await import("../helpers/getWallet.js");
+        const treasuryWallet = await getWalletForChainAtIndex(chain, finalMnemonic, 0);
+
+        const result = await sendCoin(chain, {
+            privateKey: treasuryWallet.privateKey,
+            to: toAddress,
+            amount: parseFloat(amount),
+        });
+
+        return res.json({ success: true, transaction: result });
+    } catch (err) {
+        console.error("Sweep Error:", err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+};

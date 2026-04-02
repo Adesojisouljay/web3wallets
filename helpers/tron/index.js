@@ -1,4 +1,8 @@
-import { TronWeb } from "tronweb";
+import dotenv from "dotenv";
+dotenv.config();
+
+import TronWeb from "tronweb";
+import axios from "axios";
 
 const TRON_RPCS = [
   process.env.TRON_RPC_URL,
@@ -97,10 +101,16 @@ export async function estimateTronFee({ from, to }) {
     // If not enough bandwidth, Tron burns ~0.002 TRX per bandwidth (approx 0.3 TRX total).
     // However, if it's a new account, the cost is much higher (1.1 TRX total burn).
 
-    let feeTrx = activationFee > 0 ? activationFee : 0.3; // Default estimated burn if no bandwidth
+    let feeTrx = 0;
+    
+    // Add activation fee if required (Bandwidth NEVER covers account activation)
+    if (activationFee > 0) {
+        feeTrx += activationFee;
+    }
 
-    if (availableBandwidth > 350) {
-      feeTrx = 0;
+    // Add bandwidth penalty if the user lacks free net resources
+    if (availableBandwidth < 350) {
+        feeTrx += 0.3;
     }
 
     // Safety buffer
@@ -156,23 +166,39 @@ export async function estimateTrc20Fee({ from, to, amount, contractAddress = "TR
     // Subtract completely free energy from the consumed amount
     const billableEnergy = Math.max(0, energyUsed - availableEnergy);
     
-    // TRON network currently charges ~420 sun per 1 energy
-    const energyFeeInSun = billableEnergy * 420;
-    let feeTrx = energyFeeInSun / 1e6;
+    let feeTrx;
+    let realFee = feeTrx;
+    const feeeKeyPresent = !!process.env.FEEE_API_KEY;
+    if (feeeKeyPresent) {
+      // Feee.io rental cost is significantly cheaper (~50-80 sun per energy vs 420)
+      // The system sponsors this cost, so we return 0 to the frontend to prevent balance blocks
+      realFee = (billableEnergy * 80) / 1e6; // Actual cost in TRX
+      feeTrx = 0;
+    } else {
+      // TRON network currently charges ~420 sun per 1 energy
+      const energyFeeInSun = billableEnergy * 420;
+      feeTrx = energyFeeInSun / 1e6;
+      realFee = feeTrx;
+    }
     
     // Account for bandwidth (approx 345 bandwidth per TRC20 transfer)
-    // If not enough bandwidth, it burns ~0.35 TRX. Safe to add 1 TRX buffer.
-    if (availableBandwidth < 350) {
+    // If not enough bandwidth, it burns ~0.35 TRX. 
+    // If sponsored, we'll assume free daily bandwidth (600) covers it for the user.
+    if (!process.env.FEEE_API_KEY && availableBandwidth < 350) {
       feeTrx += 1.0;
+      realFee += 1.0;
     }
     
     // Cap at a reasonable max to avoid scary UI bugs
     if (feeTrx > 50) feeTrx = 50;
+    if (realFee > 50) realFee = 50;
     
     return {
       chain: "USDT_TRC20",
       fee: feeTrx,
+      displayFee: realFee,
       energyUsed,
+      sponsored: !!process.env.FEEE_API_KEY
     };
   } catch (err) {
     console.error("[estimateTrc20Fee] Error:", err.message);
@@ -246,3 +272,88 @@ export async function getTrc20Balance(address, contractAddress = "TR7NHqjeKQxGTC
   throw new Error("All RPCs failed");
 }
 
+
+export async function rentTronEnergy({ receiveAddress, energyAmount }) {
+  try {
+    const url = 'https://feee.io/open/v2/order/submit';
+    
+    // Request minimum of 32,000 energy as typical TRC20 needs 32k or 65k
+    // Feee.io has minimums, usually 32000
+    const safeAmount = Math.max(32000, Math.ceil(energyAmount));
+
+    const payload = {
+      resource_type: 1, // 1 for Energy
+      receive_address: receiveAddress,
+      resource_value: safeAmount,
+      rent_duration: 1, // Rent for 1 hour
+      rent_time_unit: "h"
+    };
+
+    const headers = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'sovra-bot',
+      'key': process.env.FEEE_API_KEY
+    };
+
+    const response = await axios.post(url, payload, { headers });
+    const data = response.data;
+    
+    if (data.code !== 0) {
+      throw new Error(`Feee.io API Error: ${data.msg}`);
+    }
+    
+    console.log(`[Feee.io] Rented ${safeAmount} energy for ${receiveAddress}. Cost: ${data.data.pay_amount} TRX. Order NO: ${data.data.order_no}`);
+    return data.data; // Includes pay_amount which is the actual TRX cost
+  } catch (err) {
+    console.error("[Feee.io rentTronEnergy] Error:", err.response ? err.response.data : err.message);
+    throw err;
+  }
+}
+
+export async function ensureTronEnergy(address) {
+  if (!process.env.FEEE_API_KEY) return;
+  
+  try {
+    const tw = await getTronWebInstance();
+    const ownerHex = tw.address.toHex(address);
+    const accountResources = await tw.trx.getAccountResources(ownerHex);
+    
+    const availableEnergy = (accountResources.EnergyLimit || 0) - (accountResources.EnergyUsed || 0);
+    
+    // Most TRC20 transfers require ~32000 or ~65000 energy. We'll target having at least 65,000 to be safe.
+    if (availableEnergy < 65000) {
+      const needed = 65000 - availableEnergy;
+      console.log(`[ensureTronEnergy] Account ${address} has ${availableEnergy} energy. Need ${needed} more. Renting from Feee.io...`);
+      await rentTronEnergy({ receiveAddress: address, energyAmount: needed });
+      
+      // Wait for a few seconds to let the energy network sync
+      // It typically arrives within a minute, but 5 seconds is a standard buffer TRON propagates quickly.
+      await new Promise(r => setTimeout(r, 6000));
+    }
+  } catch (err) {
+    console.error(`[ensureTronEnergy] Failed to ensure energy for ${address}:`, err.message);
+    // Don't throw, let the transaction try to broadcast anyway
+  }
+}
+
+export async function sendTrc20({ privateKey, to, amount, contractAddress = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" }) {
+    const tw = new TronWeb({
+        fullHost: TRON_RPCS[0] || "https://api.trongrid.io",
+        privateKey: privateKey
+    });
+
+    const ownerAddress = tw.address.fromPrivateKey(privateKey);
+    await ensureTronEnergy(ownerAddress);
+
+    const contract = await tw.contract().at(contractAddress);
+    const decimals = await contract.decimals().call();
+    const amountInt = Math.floor(Number(amount) * Math.pow(10, Number(decimals)));
+
+    const tx = await contract.transfer(to, amountInt).send();
+
+    return {
+        hash: tx,
+        chain: "USDT_TRC20"
+    };
+}
