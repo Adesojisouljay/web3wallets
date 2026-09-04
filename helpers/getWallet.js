@@ -54,7 +54,7 @@ export async function getWalletForChain(chain, mnemonic) {
       return {
         address: publicKey,
         publicKey,
-        // privateKey: base58PrivateKey,
+        privateKey: base58PrivateKey,
       };
     }
 
