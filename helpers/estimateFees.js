@@ -2,6 +2,7 @@ import { estimateEthFee } from "./eth/index.js";
 import { estimateSolFee } from "./sol/index.js";
 import { estimateTronFee, estimateTrc20Fee } from "./tron/index.js";
 import { estimateAptosFee } from "./aptos/index.js";
+import { estimateXmrFee } from "./xmr/index.js";
 
 export async function estimateFee(chain, payload) {
   switch (chain) {
@@ -39,6 +40,9 @@ export async function estimateFee(chain, payload) {
         chain: "LTC",
         fee: 0.001 // Standard minimum network fee for Litecoin
       };
+
+    case "XMR":
+      return estimateXmrFee(payload);
 
     default:
       throw new Error(`Unsupported chain: ${chain}`);

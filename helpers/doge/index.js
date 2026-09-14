@@ -33,5 +33,5 @@ export async function getDogeBalance(address) {
     } catch (fallbackErr) {
         console.error(`DOGE fallback failed:`, fallbackErr.message);
     }
-    return 0;
+    return null;
 }

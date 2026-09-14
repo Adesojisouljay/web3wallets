@@ -31,5 +31,5 @@ export async function getLtcBalance(address) {
     } catch (fallbackErr) {
         console.error(`LTC fallback failed:`, fallbackErr.message);
     }
-    return 0;
+    return null;
 }
