@@ -6,12 +6,13 @@ import { getAptosBalance } from "./aptos/index.js";
 import { getDogeBalance } from "./doge/index.js";
 import { getLtcBalance } from "./ltc/index.js";
 import { getErc20Balance } from "./eth/index.js";
+import { getXmrBalance } from "./xmr/index.js";
 import NodeCache from "node-cache";
 
 // Initialize cache with a 3 minute Time To Live (TTL)
 const balanceCache = new NodeCache({ stdTTL: 180, checkperiod: 200 });
 
-export async function getWalletBalance(chain, address) {
+export async function getWalletBalance(chain, address, extra = {}) {
   // 1. Create a unique cache key for this chain + address combination
   const cacheKey = `${chain}-${address}`;
 
@@ -65,11 +66,23 @@ export async function getWalletBalance(chain, address) {
     case "LTC":
       balance = await getLtcBalance(address);
       break;
+    case "XMR":
+      balance = await getXmrBalance(
+        address,
+        extra.viewKey || extra.privateViewKey,
+        extra.restoreHeight,
+        extra.privateKey || extra.privateSpendKey
+      );
+      break;
     default:
       throw new Error(`Unsupported chain: ${chain}`);
   }
 
-  // 4. Store the freshly fetched balance in the cache before returning
-  balanceCache.set(cacheKey, balance);
+  // 4. Store freshly fetched balance or retain previous if fetch failed
+  if (balance !== null && balance !== undefined) {
+    balanceCache.set(cacheKey, balance);
+  } else if (cachedBalance !== undefined) {
+    balance = cachedBalance;
+  }
   return balance;
 }

@@ -25,7 +25,7 @@ export async function getBtcBalance(address) {
         return data.final_balance / 1e8;
       } catch (thirdErr) {
         console.error(`BTC all fallbacks failed:`, thirdErr.message);
-        return 0;
+        return null;
       }
     }
   }

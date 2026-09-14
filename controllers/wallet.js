@@ -19,6 +19,7 @@ export const TOKEN_ICONS = {
   DOGE: "https://cryptologos.cc/logos/dogecoin-doge-logo.png",
   LTC: "https://cryptologos.cc/logos/litecoin-ltc-logo.png",
   ARB: "https://cryptologos.cc/logos/arbitrum-arb-logo.png",
+  XMR: "https://assets.coingecko.com/coins/images/69/large/monero_logo.png",
 };
 
 
@@ -58,6 +59,7 @@ export const deriveAddress = async (req, res) => {
     const aptos = await getWalletForChain("APTOS", mnemonic);
     const doge = await getWalletForChain("DOGE", mnemonic);
     const ltc = await getWalletForChain("LTC", mnemonic);
+    const xmr = await getWalletForChain("XMR", mnemonic);
     const base = await getWalletForChain("ETH", mnemonic); // Same as ETH
     const polygon = await getWalletForChain("ETH", mnemonic); // Same as ETH
     const arbitrum = await getWalletForChain("ETH", mnemonic); // Same as ETH
@@ -79,6 +81,7 @@ export const deriveAddress = async (req, res) => {
       APTOS: { ...aptos, imageUrl: TOKEN_ICONS.APTOS },
       DOGE: { ...doge, imageUrl: TOKEN_ICONS.DOGE },
       LTC: { ...ltc, imageUrl: TOKEN_ICONS.LTC },
+      XMR: { ...xmr, viewKey: xmr.privateViewKey, imageUrl: TOKEN_ICONS.XMR },
       BASE: { ...base, imageUrl: TOKEN_ICONS.BASE },
       POLYGON: { ...polygon, imageUrl: TOKEN_ICONS.POLYGON },
       ARBITRUM: { ...arbitrum, imageUrl: TOKEN_ICONS.ARBITRUM },
@@ -123,50 +126,51 @@ export const getWalletInfo = async (req, res) => {
 
     let prices = {};
     try {
-      // Race price fetch with a 15s timeout
-      prices = await Promise.race([getPrices(chains), timeout(30000)]);
+      // Race price fetch with a 10s timeout
+      prices = await Promise.race([getPrices(chains), timeout(10000)]);
     } catch (err) {
       console.warn("Price fetch failed or timed out:", err.message);
     }
 
     const chainsToFetch = Object.entries(wallets).filter(([c, _]) => c !== "mnemonic");
-    const walletInfo = [];
-    const chunkSize = 3; // Number of chains to fetch concurrently
-    const delayBetweenChunks = 500; // ms
 
-    for (let i = 0; i < chainsToFetch.length; i += chunkSize) {
-      const chunk = chainsToFetch.slice(i, i + chunkSize);
-
-      const chunkPromises = chunk.map(async ([chain, data]) => {
-        let balance = null; // Use null to indicate failure
-        try {
-          balance = await Promise.race([getWalletBalance(chain, data.address), timeout(30000)]);
-        } catch (err) {
-          console.warn(`Balance fetch failed or timed out for ${chain}:`, err.message);
-        }
-
-        const priceData = prices[chain] || { usd: 0, change24h: 0 };
-
-        return {
-          chain,
-          symbol: chain,
-          address: data.address,
-          publicKey: data.publicKey,
-          imageUrl: data.imageUrl,
-          balance,
-          price: priceData.usd,
-          change24h: priceData.change24h,
-          usdValue: balance !== null ? balance * priceData.usd : null,
-        };
-      });
-
-      const chunkResults = await Promise.all(chunkPromises);
-      walletInfo.push(...chunkResults);
-
-      if (i + chunkSize < chainsToFetch.length) {
-        await new Promise(resolve => setTimeout(resolve, delayBetweenChunks)); // Delay before next chunk
+    // Fetch balances concurrently with isolated timeouts so XMR never blocks fast chains
+    const fetchBalanceForChain = async ([chain, data]) => {
+      let rawBalance = null;
+      let incomingTransfers = [];
+      const chainTimeout = chain === "XMR" ? 35000 : 10000;
+      try {
+        rawBalance = await Promise.race([
+          getWalletBalance(chain, data.address, data),
+          timeout(chainTimeout)
+        ]);
+      } catch (err) {
+        console.warn(`Balance fetch failed or timed out for ${chain}:`, err.message);
       }
-    }
+
+      let balance = rawBalance;
+      if (rawBalance && typeof rawBalance === "object") {
+        balance = rawBalance.balance !== undefined ? rawBalance.balance : null;
+        incomingTransfers = rawBalance.incomingTransfers || [];
+      }
+
+      const priceData = prices[chain] || { usd: 0, change24h: 0 };
+
+      return {
+        chain,
+        symbol: chain,
+        address: data.address,
+        publicKey: data.publicKey,
+        imageUrl: data.imageUrl,
+        balance,
+        incomingTransfers,
+        price: priceData.usd,
+        change24h: priceData.change24h,
+        usdValue: balance !== null ? balance * priceData.usd : null,
+      };
+    };
+
+    const walletInfo = await Promise.all(chainsToFetch.map(fetchBalanceForChain));
 
     return res.json({
       success: true,
@@ -198,6 +202,7 @@ export const sendWalletTransaction = async (req, res) => {
     else if (chain === "BASE") rpcUrl = process.env.BASE_RPC_URL || "https://mainnet.base.org";
     else if (chain === "POLYGON") rpcUrl = process.env.POLYGON_RPC_URL || "https://polygon-rpc.com";
     else if (chain === "ARBITRUM" || chain === "ARB") rpcUrl = process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc";
+    else if (chain === "XMR") rpcUrl = process.env.XMR_RPC_URL || "http://xmr-node.cakewallet.com:18081";
 
     const result = await sendCoin(chain, {
       rpcUrl: rpcUrl,
@@ -239,6 +244,8 @@ export const estimateTransactionFee = async (req, res) => {
       rpcUrl = process.env.POLYGON_RPC_URL || "https://polygon-rpc.com";
     } else if (chain === "ARBITRUM" || chain === "ARB") {
       rpcUrl = process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc";
+    } else if (chain === "XMR") {
+      rpcUrl = process.env.XMR_RPC_URL || "http://xmr-node.cakewallet.com:18081";
     }
 
     let feeObj;

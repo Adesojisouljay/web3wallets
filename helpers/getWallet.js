@@ -9,6 +9,7 @@ import * as bip39 from "bip39";
 import { derivePath } from "ed25519-hd-key";
 import bs58 from "bs58";
 import { Keypair } from "@solana/web3.js";
+import { getXmrWallet, getXmrWalletAtIndex } from "./xmr/index.js";
 
 export const getMnemonic = async () => {
   const mnemonic = cryptoLib.bip39.generateMnemonic(128);
@@ -168,6 +169,11 @@ export async function getWalletForChain(chain, mnemonic) {
       };
     }
 
+    // ---------------- XMR (Monero) ----------------
+    case "XMR": {
+      return await getXmrWallet(mnemonic);
+    }
+
     default:
       throw new Error(`Unsupported chain: ${chain}`);
   }
@@ -255,6 +261,10 @@ export async function getWalletForChainAtIndex(chain, mnemonic, index = 0) {
       const addressData = await wallet.getNewAddress({ privateKey, addressType: "short" });
 
       return { address: addressData.address, publicKey: addressData.publicKey, privateKey };
+    }
+
+    case "XMR": {
+      return await getXmrWalletAtIndex(mnemonic, index);
     }
 
     default:

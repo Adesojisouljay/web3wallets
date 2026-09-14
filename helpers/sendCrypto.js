@@ -2,6 +2,7 @@ import { sendEth } from "./eth/index.js";
 import { sendSol, sendSolToken } from "./sol/index.js";
 import { sendTron } from "./tron/index.js";
 import { sendAptos } from "./aptos/index.js";
+import { sendXmr } from "./xmr/index.js";
 
 export async function sendCoin(chain, payload) {
   switch (chain) {
@@ -23,6 +24,9 @@ export async function sendCoin(chain, payload) {
 
     case "APTOS":
       return sendAptos(payload);
+
+    case "XMR":
+      return sendXmr(payload);
 
     default:
       throw new Error(`Unsupported chain: ${chain}`);
