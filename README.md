@@ -27,11 +27,19 @@ This API is designed to bridge Web2 user accounts (like Google Login) with decen
                   ▼
    4. Withdrawing / Moving Funds (Signing)
       ├── Option A (Server-Assisted): POST /api/wallet/send
-      └── Option B (Non-Custodial / Client Signed):
-             1. POST /api/wallet/params  (fetch nonce/utxos/gas/blockhash)
-             2. Sign transaction client-side with user key/passkey
-             3. POST /api/wallet/broadcast (broadcast signed raw transaction)
+      ├── Option B (Client-Side / PIN or Passkey):
+      │      1. POST /api/wallet/params  (fetch nonce/utxos/gas/blockhash)
+      │      2. Sign transaction client-side with user key/passkey
+      │      3. POST /api/wallet/broadcast (broadcast signed raw transaction)
+      └── Option C (Hive Keychain Master Signer - The Sovraniche Pattern):
+             1. User links their Hive account
+             2. Hive Keychain signs a challenge buffer (`requestSignBuffer`)
+             3. Signature decrypts the BIP-39 mnemonic in client memory
+             4. Client signs ETH, SOL, BTC, LTC transactions using Hive Keychain as the master key!
 ```
+
+> **🔑 Hive Keychain as a Universal Multi-Chain Signer:**  
+> When users link their Hive account, Hive Keychain becomes the master signer for ALL supported chains. By using Keychain's `requestSignBuffer` as the decryption key for the AES-256 encrypted mnemonic, users don't need MetaMask, Phantom, or a separate Bitcoin wallet installed. Hive Keychain secures and authorizes transactions across Bitcoin, Solana, Ethereum, Litecoin, and Tron seamlessly.
 
 > **Note on Bitcoin Lightning:**
 > On-chain Bitcoin (`BTC`) addresses are derived via BIP-84 (Native SegWit Bech32 `bc1q...`). Lightning addresses (`user@domain.com` or LNURL) require an active Lightning node/custodial LNURL backend (e.g., LNBits, Alby, or Blink). You can link an LNURL service alongside these on-chain addresses.
