@@ -59,6 +59,29 @@ curl https://web3.ezabay.com/ping
 
 ---
 
+## 🔐 Authentication & API Access
+
+Requests to `/api/*` endpoints are secured via **Domain Whitelisting** or an **API Key**:
+
+1. **Whitelisted Domains (Zero-Configuration):**  
+   All requests originating from internal platforms (`*.sovraniche.com`, `*.ezabay.com`, `*.adesojisouljay.com`) are automatically authenticated and do not require an API key.
+
+2. **Partner & External Requests (API Key):**  
+   External clients, backend servers, and partner applications must provide an API key in the request headers:
+
+   ```http
+   x-api-key: your_api_key_here
+   ```
+   *(or as Bearer token: `Authorization: Bearer your_api_key_here`)*
+
+   ```bash
+   # Example authenticated call
+   curl -X GET https://web3.ezabay.com/api/wallet/mnemonic \
+     -H "x-api-key: your_api_key_here"
+   ```
+
+---
+
 ## 📡 API Reference
 
 ### 1. Generate Mnemonic

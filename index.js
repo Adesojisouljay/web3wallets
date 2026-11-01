@@ -10,20 +10,19 @@ if (!globalThis.crypto) {
 import express from "express";
 import cors from "cors";
 import routes from "./routes/index.js";
-// console.log("ALL ENV KEYS:", Object.keys(process.env));
-
+import { authenticateRequest } from "./middleware/auth.js";
 
 const app = express();
 
 app.use(cors({
   origin: "*",
-  methods: ["GET", "POST"],
-  allowedHeaders: ["Content-Type"],
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "x-api-key", "Authorization"],
 }));
 
 app.use(express.json());
 
-// Diagnostic Ping (No prefix)
+// Diagnostic Ping (No prefix, public health check)
 app.get("/ping", (req, res) => res.json({
   success: true,
   message: "Server is alive on 4001",
@@ -31,15 +30,7 @@ app.get("/ping", (req, res) => res.json({
   time: new Date()
 }));
 
-// Simple request logger
-// Basic request logging removed for VPS performance
-// app.use((req, res, next) => {
-//   console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
-//   next();
-// });
-
-
-app.use("/api", routes);
+app.use("/api", authenticateRequest, routes);
 
 // Catch-all logger for /api to see where it deviates
 app.use("/api", (req, res) => {
