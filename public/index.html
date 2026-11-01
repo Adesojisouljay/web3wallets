@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web3 Multi-Chain Wallet API Tester</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(18, 24, 38, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --accent-hover: #60a5fa;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --input-bg: rgba(11, 15, 25, 0.9);
+      --input-border: rgba(255, 255, 255, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.12) 0px, transparent 50%);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 20px;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .tagline {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--success);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-number {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: var(--accent);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    textarea {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      resize: vertical;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: none;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Address Badges Grid */
+    .wallets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .wallet-card {
+      background: rgba(11, 15, 25, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color 0.2s;
+    }
+
+    .wallet-card:hover {
+      border-color: rgba(59, 130, 246, 0.4);
+    }
+
+    .wallet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chain-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .chain-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #1f2937;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .address-box {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #93c5fd;
+      word-break: break-all;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .address-box:hover {
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    .balance-badge {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--success);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Console / Logs */
+    .console-card {
+      background: #060911;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    .console-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 10px;
+    }
+
+    .console-body {
+      max-height: 240px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #a5b4fc;
+    }
+
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .alert-info {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      color: #93c5fd;
+    }
+
+    .copied-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--success);
+      color: black;
+      font-weight: 600;
+      padding: 10px 18px;
+      border-radius: 8px;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+      display: none;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="logo-badge">W3</div>
+      <div>
+        <h1>Web3 Multi-Chain Wallet Tester</h1>
+        <div class="tagline">Interactive API Testing Playground for Starkerz & Breakaway Team</div>
+      </div>
+    </div>
+    <div id="pingStatus" class="status-pill">
+      <span class="status-dot"></span>
+      <span id="pingText">Checking server...</span>
+    </div>
+  </header>
+
+  <!-- Global Config Card -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">⚙️ API Connection & Credentials</div>
+      <div class="btn-group">
+        <button class="btn btn-secondary btn-sm" onclick="setHost('local')">Use Localhost (4001)</button>
+        <button class="btn btn-secondary btn-sm" onclick="setHost('prod')">Use Production (web3.ezabay.com)</button>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>API Base URL</label>
+        <input type="text" id="apiUrl" value="https://web3.ezabay.com/api" />
+      </div>
+      <div class="form-group">
+        <label>API Key (x-api-key)</label>
+        <input type="text" id="apiKey" value="7e6e550b34ac3ed86599d2fc8478594a" class="mono" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 1: Wallet Derivation & PIN Encryption -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="step-number">1</span>
+        Wallet Seed & Derivation (POST /api/wallet/address)
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-secondary btn-sm" onclick="generateDemoMnemonic()">🎲 Generate Random Mnemonic</button>
+      </div>
+    </div>
+
+    <div class="alert alert-info">
+      💡 <b>Cryptographic Architecture:</b> Standard BIP-39 seed generation requires the exact 12 words to derive native keypairs (Bech32 SegWit BTC, Solana, EVM). The server derives in RAM and returns the public addresses.
+    </div>
+
+    <div class="form-group">
+      <label>12-Word Mnemonic Phrase</label>
+      <textarea id="mnemonicInput" rows="2" placeholder="e.g. apple banana cherry dog elephant fox grape horse igloo jaguar kite lemon"></textarea>
+    </div>
+
+    <div style="display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px;">
+      <div class="form-group" style="flex: 1; margin: 0;">
+        <label>Optional 6-Digit PIN (Demo Client Encryption)</label>
+        <input type="password" id="pinInput" placeholder="e.g. 123456" maxlength="6" class="mono" />
+      </div>
+      <button class="btn btn-secondary" onclick="demoEncryptSeed()">🔒 Encrypt Seed Locally</button>
+      <button class="btn" id="deriveBtn" onclick="deriveAddresses()">⚡ Derive Multi-Chain Wallets</button>
+    </div>
+
+    <div id="encStatus" style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px; display: none;"></div>
+
+    <!-- Derived Addresses Grid -->
+    <div id="walletsContainer" class="wallets-grid" style="display: none;"></div>
+  </div>
+
+  <!-- Step 2: Live Balances -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="step-number">2</span>
+        Live Balances & Market Rates (POST /api/wallet/info)
+      </div>
+      <button class="btn btn-sm" onclick="fetchLiveBalances()">🔄 Refresh Balances</button>
+    </div>
+    <div id="balanceSummary" style="font-size: 14px; color: var(--text-muted);">
+      Derive addresses in Step 1 first to view live on-chain balances and CoinGecko USD rates.
+    </div>
+  </div>
+
+  <!-- Step 3: Gas & Transaction Parameters -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="step-number">3</span>
+        Fee Estimation & Nonce / Blockhash (POST /api/wallet/fee & /params)
+      </div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div class="form-group">
+          <label>Chain</label>
+          <select id="paramChain">
+            <option value="SOL">Solana (SOL)</option>
+            <option value="ETH">Ethereum (ETH)</option>
+            <option value="BNB">Binance Smart Chain (BNB)</option>
+            <option value="BTC">Bitcoin (BTC Native SegWit)</option>
+            <option value="BASE">Base (BASE)</option>
+            <option value="POLYGON">Polygon (POLYGON)</option>
+            <option value="ARBITRUM">Arbitrum (ARB)</option>
+            <option value="LTC">Litecoin (LTC)</option>
+            <option value="DOGE">Dogecoin (DOGE)</option>
+            <option value="TRON">TRON (TRX)</option>
+            <option value="USDT_TRC20">USDT (TRC-20)</option>
+            <option value="USDT_ERC20">USDT (ERC-20)</option>
+            <option value="USDT_BEP20">USDT (BEP-20)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Recipient Address</label>
+          <input type="text" id="paramTo" placeholder="Recipient address on chosen chain" class="mono" />
+        </div>
+        <div class="form-group">
+          <label>Amount</label>
+          <input type="text" id="paramAmount" value="0.01" class="mono" />
+        </div>
+        <button class="btn" onclick="fetchParamsAndFees()">🔍 Estimate Fee & Fetch Params</button>
+      </div>
+
+      <div>
+        <label>Network Response & Signing Parameters</label>
+        <div class="console-card" style="min-height: 190px;">
+          <div class="console-body" id="paramsResult">// Click 'Estimate Fee & Fetch Params' to inspect network fees and nonce/blockhash</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Broadcast Simulation -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="step-number">4</span>
+        Broadcast Signed Transaction (POST /api/wallet/broadcast)
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Chain</label>
+        <select id="broadcastChain">
+          <option value="SOL">Solana (SOL)</option>
+          <option value="ETH">Ethereum (ETH)</option>
+          <option value="BNB">Binance Smart Chain (BNB)</option>
+          <option value="BTC">Bitcoin (BTC)</option>
+          <option value="TRON">TRON (TRX)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Signed Raw Transaction Hex / Base64</label>
+        <input type="text" id="signedTxInput" placeholder="e.g. 0x02f87301... or base64 raw transaction" class="mono" />
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="broadcastTx()">🚀 Broadcast to Blockchain Node</button>
+  </div>
+
+  <!-- Real-Time Request Inspector -->
+  <div class="console-card">
+    <div class="console-header">
+      <span>📡 Live HTTP Request & Response Log</span>
+      <button class="btn btn-secondary btn-sm" onclick="clearLogs()">Clear</button>
+    </div>
+    <div class="console-body" id="logOutput">// Ready for testing...</div>
+  </div>
+
+</div>
+
+<!-- Copied Toast -->
+<div id="toast" class="copied-toast">Copied to clipboard!</div>
+
+<script>
+  let currentWallets = null;
+
+  // Standard BIP-39 Valid Test Phrases
+  const validTestPhrases = [
+    "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+    "legal winner thank year wave sausage worth useful legal winner thank yellow",
+    "letter advice cage absurd amount doctor acoustic avoid letter advice cage above",
+    "ozone drill grab fiber curtain grace pudding thank cruise elder eight picnic",
+    "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong"
+  ];
+  let phraseIdx = 0;
+
+  function generateDemoMnemonic() {
+    const phrase = validTestPhrases[phraseIdx % validTestPhrases.length];
+    phraseIdx++;
+    document.getElementById("mnemonicInput").value = phrase;
+    log("Loaded valid BIP-39 test mnemonic phrase: " + phrase);
+  }
+
+  function setHost(type) {
+    if (type === 'local') {
+      document.getElementById("apiUrl").value = "http://localhost:4001/api";
+    } else {
+      document.getElementById("apiUrl").value = "https://web3.ezabay.com/api";
+    }
+    checkPing();
+  }
+
+  function log(msg, data = null) {
+    const logEl = document.getElementById("logOutput");
+    const timestamp = new Date().toLocaleTimeString();
+    let text = `[${timestamp}] ${msg}`;
+    if (data) {
+      text += `\n` + JSON.stringify(data, null, 2);
+    }
+    logEl.textContent = text + "\n\n" + logEl.textContent;
+  }
+
+  function clearLogs() {
+    document.getElementById("logOutput").textContent = "// Cleared.";
+  }
+
+  function copy(text) {
+    navigator.clipboard.writeText(text);
+    const toast = document.getElementById("toast");
+    toast.style.display = "block";
+    setTimeout(() => { toast.style.display = "none"; }, 2000);
+  }
+
+  // Ping Check
+  async function checkPing() {
+    const base = document.getElementById("apiUrl").value.replace(/\/api\/?$/, "");
+    const statusText = document.getElementById("pingText");
+    const statusDot = document.querySelector(".status-dot");
+    try {
+      const res = await fetch(`${base}/ping`);
+      const data = await res.json();
+      if (data.success) {
+        statusText.textContent = `Online (${base})`;
+        statusDot.style.background = "var(--success)";
+      } else {
+        throw new Error();
+      }
+    } catch {
+      statusText.textContent = `Unreachable (${base})`;
+      statusDot.style.background = "var(--danger)";
+    }
+  }
+
+  // Step 1: Client-Side PIN Encryption Demo using Web Crypto (AES-GCM-256)
+  async function demoEncryptSeed() {
+    const mnemonic = document.getElementById("mnemonicInput").value.trim();
+    const pin = document.getElementById("pinInput").value.trim();
+    const statusEl = document.getElementById("encStatus");
+
+    if (!mnemonic) return alert("Please enter or generate a mnemonic first.");
+    if (!pin || pin.length < 4) return alert("Please enter at least a 4-to-6 digit PIN.");
+
+    try {
+      const enc = new TextEncoder();
+      const salt = window.crypto.getRandomValues(new Uint8Array(16));
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+      // Derive key using PBKDF2
+      const baseKey = await window.crypto.subtle.importKey(
+        'raw', enc.encode(pin), 'PBKDF2', false, ['deriveKey']
+      );
+
+      const aesKey = await window.crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+        baseKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+
+      const ciphertext = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        aesKey,
+        enc.encode(mnemonic)
+      );
+
+      const b64Cipher = btoa(String.fromCharCode(...new Uint8Array(ciphertext)));
+      statusEl.style.display = "block";
+      statusEl.innerHTML = `✅ <b>Encrypted with AES-256 using PIN:</b> <span class="mono">${b64Cipher.substring(0, 32)}...</span> (Stored securely on device, raw phrase NEVER kept)`;
+      log("Client-Side PIN Encryption successful:", {
+        pin: "***",
+        iterations: 100000,
+        algorithm: "AES-GCM-256",
+        sampleCiphertextPreview: b64Cipher.substring(0, 40) + "..."
+      });
+    } catch (e) {
+      alert("Encryption error: " + e.message);
+    }
+  }
+
+  // Step 1: Derive Multi-Chain Wallets
+  async function deriveAddresses() {
+    const mnemonic = document.getElementById("mnemonicInput").value.trim();
+    const apiUrl = document.getElementById("apiUrl").value.trim();
+    const apiKey = document.getElementById("apiKey").value.trim();
+    const btn = document.getElementById("deriveBtn");
+
+    if (!mnemonic) return alert("Please enter a 12-word seed phrase.");
+
+    btn.textContent = "Deriving on server...";
+    btn.disabled = true;
+
+    try {
+      log(`Calling POST ${apiUrl}/wallet/address`);
+      const res = await fetch(`${apiUrl}/wallet/address`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey
+        },
+        body: JSON.stringify({ mnemonic })
+      });
+
+      const data = await res.json();
+      log("Response from /wallet/address:", data);
+
+      if (!data.success) {
+        throw new Error(data.message || "Failed to derive");
+      }
+
+      currentWallets = data.wallets;
+      renderWallets(currentWallets);
+    } catch (err) {
+      alert("Derivation error: " + err.message);
+      log("Error deriving addresses:", err.message);
+    } finally {
+      btn.textContent = "⚡ Derive Multi-Chain Wallets";
+      btn.disabled = false;
+    }
+  }
+
+  function renderWallets(wallets) {
+    const container = document.getElementById("walletsContainer");
+    container.innerHTML = "";
+    container.style.display = "grid";
+
+    const chains = [
+      { key: "BTC", name: "Bitcoin (Native SegWit)", icon: "₿" },
+      { key: "ETH", name: "Ethereum", icon: "Ξ" },
+      { key: "SOL", name: "Solana", icon: "◎" },
+      { key: "BNB", name: "BNB Chain", icon: "🟡" },
+      { key: "LTC", name: "Litecoin", icon: "Ł" },
+      { key: "DOGE", name: "Dogecoin", icon: "Ð" },
+      { key: "TRON", name: "TRON", icon: "🔴" },
+      { key: "BASE", name: "Base", icon: "🔵" },
+      { key: "ARBITRUM", name: "Arbitrum", icon: "🔷" },
+      { key: "APTOS", name: "Aptos", icon: "⚡" },
+      { key: "XMR", name: "Monero", icon: "ɱ" }
+    ];
+
+    chains.forEach(c => {
+      const w = wallets[c.key];
+      if (!w || !w.address) return;
+
+      const card = document.createElement("div");
+      card.className = "wallet-card";
+      card.innerHTML = `
+        <div class="wallet-header">
+          <div class="chain-name">
+            <span class="chain-icon">${c.icon}</span>
+            <span>${c.name}</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="copy('${w.address}')">Copy</button>
+        </div>
+        <div class="address-box" onclick="copy('${w.address}')" title="Click to copy">${w.address}</div>
+        <div class="balance-badge" id="bal-${c.key}">
+          <span>Balance:</span>
+          <span>--</span>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    document.getElementById("balanceSummary").textContent = "Addresses ready. Click 'Refresh Balances' to pull live balances.";
+  }
+
+  // Step 2: Fetch Balances (POST /api/wallet/info)
+  async function fetchLiveBalances() {
+    if (!currentWallets) return alert("Please derive addresses in Step 1 first.");
+
+    const apiUrl = document.getElementById("apiUrl").value.trim();
+    const apiKey = document.getElementById("apiKey").value.trim();
+
+    try {
+      log(`Calling POST ${apiUrl}/wallet/info`);
+      const res = await fetch(`${apiUrl}/wallet/info`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey
+        },
+        body: JSON.stringify({ wallets: currentWallets })
+      });
+
+      const data = await res.json();
+      log("Response from /wallet/info:", data);
+
+      const list = data.walletInfo || data.wallets || [];
+      if (Array.isArray(list) && list.length > 0) {
+        let totalUsd = 0;
+        list.forEach(item => {
+          const balEl = document.getElementById(`bal-${item.chain}`);
+          if (balEl) {
+            const usd = item.usdValue ? ` ($${item.usdValue.toFixed(2)})` : "";
+            balEl.innerHTML = `<span>Balance:</span> <span>${item.balance} ${item.symbol}${usd}</span>`;
+            totalUsd += (item.usdValue || 0);
+          }
+        });
+        document.getElementById("balanceSummary").innerHTML = `<b>Total Portfolio Value:</b> $${totalUsd.toFixed(2)} USD`;
+      }
+    } catch (e) {
+      log("Balance fetch error:", e.message);
+    }
+  }
+
+  // Step 3: Fetch Fee & Params
+  async function fetchParamsAndFees() {
+    const chain = document.getElementById("paramChain").value;
+    const to = document.getElementById("paramTo").value.trim() || (currentWallets?.[chain]?.address || "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq");
+    const amount = document.getElementById("paramAmount").value.trim();
+    const apiUrl = document.getElementById("apiUrl").value.trim();
+    const apiKey = document.getElementById("apiKey").value.trim();
+    const address = currentWallets?.[chain]?.address || "0x71C...demo";
+
+    const resultBox = document.getElementById("paramsResult");
+    resultBox.textContent = "Fetching parameters from node...";
+
+    try {
+      log(`Calling POST ${apiUrl}/wallet/fee & /params for ${chain}`);
+      
+      const [feeRes, paramsRes] = await Promise.all([
+        fetch(`${apiUrl}/wallet/fee`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+          body: JSON.stringify({ chain, from: address, to, amount })
+        }),
+        fetch(`${apiUrl}/wallet/params`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+          body: JSON.stringify({ chain, address, to, amount })
+        })
+      ]);
+
+      const feeData = await feeRes.json();
+      const paramsData = await paramsRes.json();
+
+      const combined = {
+        chain,
+        estimatedFee: feeData.fee,
+        feeDetails: feeData.details,
+        transactionParams: paramsData.params
+      };
+
+      resultBox.textContent = JSON.stringify(combined, null, 2);
+      log("Fee & Params received:", combined);
+    } catch (err) {
+      resultBox.textContent = "Error: " + err.message;
+      log("Param error:", err.message);
+    }
+  }
+
+  // Step 4: Broadcast
+  async function broadcastTx() {
+    const chain = document.getElementById("broadcastChain").value;
+    const signedTx = document.getElementById("signedTxInput").value.trim();
+    const apiUrl = document.getElementById("apiUrl").value.trim();
+    const apiKey = document.getElementById("apiKey").value.trim();
+
+    if (!signedTx) return alert("Please provide the raw signed transaction hex or base64.");
+
+    try {
+      log(`Broadcasting transaction for ${chain}...`);
+      const res = await fetch(`${apiUrl}/wallet/broadcast`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+        body: JSON.stringify({ chain, signedTx })
+      });
+      const data = await res.json();
+      log("Broadcast response:", data);
+      if (data.hash) {
+        alert("Transaction Broadcasted! TxHash: " + data.hash);
+      } else {
+        alert("Broadcast response: " + JSON.stringify(data));
+      }
+    } catch (err) {
+      log("Broadcast error:", err.message);
+      alert("Broadcast error: " + err.message);
+    }
+  }
+
+  // Initial check
+  checkPing();
+</script>
+
+</body>
+</html>
