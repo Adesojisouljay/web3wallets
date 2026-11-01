@@ -59,26 +59,22 @@ curl https://web3.ezabay.com/ping
 
 ---
 
-## 🔐 Authentication & API Access
+## 🔐 Authentication
 
-Requests to `/api/*` endpoints are secured via **Domain Whitelisting** or an **API Key**:
+All requests to `/api/*` endpoints require an API key passed in the request headers:
 
-1. **Whitelisted Domains (Zero-Configuration):**  
-   All requests originating from internal platforms (`*.sovraniche.com`, `*.ezabay.com`, `*.adesojisouljay.com`) are automatically authenticated and do not require an API key.
+```http
+x-api-key: your_api_key_here
+```
+*(or as a Bearer token: `Authorization: Bearer your_api_key_here`)*
 
-2. **Partner & External Requests (API Key):**  
-   External clients, backend servers, and partner applications must provide an API key in the request headers:
+```bash
+# Example authenticated call
+curl -X GET https://web3.ezabay.com/api/wallet/mnemonic \
+  -H "x-api-key: your_api_key_here"
+```
 
-   ```http
-   x-api-key: your_api_key_here
-   ```
-   *(or as Bearer token: `Authorization: Bearer your_api_key_here`)*
-
-   ```bash
-   # Example authenticated call
-   curl -X GET https://web3.ezabay.com/api/wallet/mnemonic \
-     -H "x-api-key: your_api_key_here"
-   ```
+To request an API key for your project or integration, reach out to the core team.
 
 ---
 
