@@ -19,10 +19,7 @@ const WHITELISTED_DOMAINS = [
 
 // Pre-configured valid API keys
 const VALID_API_KEYS = new Set([
-  // Partner: Starkerz (3Speak)
-  process.env.PARTNER_STARKERZ_API_KEY || "wb3_live_starkerz_9a4f7e21b8c6",
-  
-  // Internal key
+  process.env.PARTNER_API_KEY || "7e6e550b34ac3ed86599d2fc8478594a",
   process.env.INTERNAL_API_KEY || "breakaway_secure_dev_key"
 ]);
 
