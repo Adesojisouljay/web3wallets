@@ -41,9 +41,6 @@ This API is designed to bridge Web2 user accounts (like Google Login) with decen
 > **🔑 Hive Keychain as a Universal Multi-Chain Signer:**  
 > When users link their Hive account, Hive Keychain becomes the master signer for ALL supported chains. By using Keychain's `requestSignBuffer` as the decryption key for the AES-256 encrypted mnemonic, users don't need MetaMask, Phantom, or a separate Bitcoin wallet installed. Hive Keychain secures and authorizes transactions across Bitcoin, Solana, Ethereum, Litecoin, and Tron seamlessly.
 
-> **Note on Bitcoin Lightning:**
-> On-chain Bitcoin (`BTC`) addresses are derived via BIP-84 (Native SegWit Bech32 `bc1q...`). Lightning addresses (`user@domain.com` or LNURL) require an active Lightning node/custodial LNURL backend (e.g., LNBits, Alby, or Blink). You can link an LNURL service alongside these on-chain addresses.
-
 ---
 
 ## 🚀 Live API Endpoint & Base URL
