@@ -21,6 +21,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(express.static("public"));
 
 // Diagnostic Ping (No prefix, public health check)
 app.get("/ping", (req, res) => res.json({
